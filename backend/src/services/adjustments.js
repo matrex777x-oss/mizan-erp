@@ -45,7 +45,7 @@ async function readLines(tx, rawLines) {
  * يرحّل التسوية: يحرّك المخزون ثم يقيّد الفرق مقابل الحساب المقابل المختار
  * (رأس المال للأرصدة الافتتاحية، أو حساب فروق الجرد للتالف والعجز).
  */
-async function postAdjustment(tx, adjustment, userId) {
+async function postAdjustment(tx, adjustment, actor) {
   if (adjustment.status === 'POSTED') throw badRequest('التسوية مُرحَّلة مسبقاً');
   if (adjustment.status === 'CANCELLED') throw badRequest('التسوية ملغاة');
 
@@ -113,7 +113,7 @@ async function postAdjustment(tx, adjustment, userId) {
       memo,
       source: 'ADJUSTMENT',
       sourceId: full.id,
-      userId,
+      actor,
       lines,
     });
   }

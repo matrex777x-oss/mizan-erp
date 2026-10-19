@@ -27,7 +27,7 @@ async function assertPeriodOpen(tx, date) {
  * ينشئ قيداً متوازناً. يُستدعى دائماً داخل معاملة (transaction).
  * lines: [{ accountId, partyId?, debit?, credit?, memo? }] بالوحدة الصغرى أو كنص عشري.
  */
-async function createEntry(tx, { date, memo = null, source = 'MANUAL', sourceId = null, userId = null, lines }) {
+async function createEntry(tx, { date, memo = null, source = 'MANUAL', sourceId = null, actor = null, lines }) {
   if (!ENTRY_SOURCES.includes(source)) throw badRequest('مصدر القيد غير صالح');
   if (!Array.isArray(lines) || lines.length < 2) {
     throw badRequest('القيد يحتاج سطرين على الأقل');
@@ -85,7 +85,9 @@ async function createEntry(tx, { date, memo = null, source = 'MANUAL', sourceId 
       memo,
       source,
       sourceId,
-      createdById: userId,
+      createdById: actor ? actor.id : null,
+      // لقطة الاسم: المستخدم في قاعدة النظام فلا يمكن ضمّه باستعلام واحد هنا
+      createdByName: actor ? actor.name : null,
       lines: { create: prepared },
     },
     include: { lines: true },

@@ -11,17 +11,8 @@ datasource db {
 }
 
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("ACCOUNTANT") // OWNER | ACCOUNTANT | VIEWER
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  journalEntries JournalEntry[]
-}
+// المستخدمون وصلاحياتهم في قاعدة النظام المركزية لا هنا — انظر system.prisma.
+// قاعدة المنشأة بيانات محاسبية خالصة، فيمكن نسخها ونقلها ونسخها احتياطياً وحدها.
 
 // ───────────────────────── شجرة الحسابات ─────────────────────────
 
@@ -90,8 +81,10 @@ model JournalEntry {
   // معرّف المستند الذي ولّد القيد (فاتورة أو سند) — لحذفه معه
   sourceId String?
 
-  createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  // المستخدم في قاعدة النظام لا هنا، فلا علاقة أجنبية. والاسم لقطة تُحفظ لحظة
+  // الترحيل فيبقى أثر المسؤولية مقروءاً حتى لو حُذف المستخدم لاحقاً.
+  createdById   String?
+  createdByName String?
   createdAt   DateTime @default(now())
 
   lines JournalLine[]

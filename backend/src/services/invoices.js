@@ -162,7 +162,7 @@ async function applyStock(tx, invoice) {
 }
 
 /** يرحّل الفاتورة: يحرّك المخزون وينشئ القيد المحاسبي ويغيّر الحالة. */
-async function postInvoice(tx, invoice, userId) {
+async function postInvoice(tx, invoice, actor) {
   if (invoice.status === 'POSTED') throw badRequest('الفاتورة مُرحَّلة مسبقاً');
   if (invoice.status === 'CANCELLED') throw badRequest('الفاتورة ملغاة');
 
@@ -208,7 +208,7 @@ async function postInvoice(tx, invoice, userId) {
     memo,
     source: 'INVOICE',
     sourceId: full.id,
-    userId,
+    actor,
     lines: [...lines, ...stockEntryLines],
   });
 

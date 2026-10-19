@@ -143,7 +143,7 @@ router.post('/', requireWrite, async (req, res, next) => {
         include: { lines: true },
       });
 
-      if (shouldPost) await postInvoice(tx, invoice, req.user.id);
+      if (shouldPost) await postInvoice(tx, invoice, req.user);
       return invoice.id;
     });
 
@@ -194,7 +194,7 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id: req.params.id }, include: { lines: true } });
       if (!invoice) throw notFound('الفاتورة غير موجودة');
-      await postInvoice(tx, invoice, req.user.id);
+      await postInvoice(tx, invoice, req.user);
     });
 
     const row = await prisma.invoice.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });

@@ -56,7 +56,8 @@ function journalEntry(row) {
     memo: row.memo,
     source: row.source,
     sourceId: row.sourceId,
-    createdBy: row.createdBy ? { id: row.createdBy.id, name: row.createdBy.name } : undefined,
+    // لقطة محفوظة في القيد نفسه؛ المستخدم في قاعدة النظام فلا علاقة تُضَم هنا
+    createdBy: row.createdById || row.createdByName ? { id: row.createdById, name: row.createdByName } : undefined,
     createdAt: row.createdAt,
     lines: (row.lines || []).map(journalLine),
     totalDebit: money((row.lines || []).reduce((sum, l) => sum + l.debit, 0n)),

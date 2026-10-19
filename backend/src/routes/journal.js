@@ -31,7 +31,6 @@ router.get('/', async (req, res, next) => {
         take,
         skip,
         include: {
-          createdBy: { select: { id: true, name: true } },
           lines: { include: { account: true, party: true } },
         },
       }),
@@ -49,7 +48,6 @@ router.get('/:id', async (req, res, next) => {
     const row = await prisma.journalEntry.findUnique({
       where: { id: req.params.id },
       include: {
-        createdBy: { select: { id: true, name: true } },
         lines: { include: { account: true, party: true } },
       },
     });
@@ -67,13 +65,12 @@ router.post('/', requireWrite, async (req, res, next) => {
     const lines = requireArray(req.body?.lines, 'سطور القيد', { min: 2 });
 
     const entry = await prisma.$transaction((tx) =>
-      createEntry(tx, { date, memo, source: 'MANUAL', userId: req.user.id, lines }),
+      createEntry(tx, { date, memo, source: 'MANUAL', actor: req.user, lines }),
     );
 
     const full = await prisma.journalEntry.findUnique({
       where: { id: entry.id },
       include: {
-        createdBy: { select: { id: true, name: true } },
         lines: { include: { account: true, party: true } },
       },
     });

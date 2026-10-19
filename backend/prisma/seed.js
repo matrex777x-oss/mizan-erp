@@ -2,7 +2,6 @@
 
 require('dotenv').config();
 
-const bcrypt = require('bcryptjs');
 const prisma = require('../src/lib/prisma');
 const { SYSTEM_ACCOUNTS } = require('../src/lib/constants');
 
@@ -88,41 +87,31 @@ async function seedChart() {
   return idByCode.size;
 }
 
-async function seedOwner() {
-  const email = (process.env.SEED_EMAIL || 'admin@mizan.local').toLowerCase();
-  const password = process.env.SEED_PASSWORD || 'Mizan@12345';
-
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {},
-    create: {
-      email,
-      name: process.env.SEED_NAME || 'المدير',
-      password: await bcrypt.hash(password, 10),
-      role: 'OWNER',
-    },
-  });
-
-  return { email: user.email, password };
-}
-
 async function main() {
   await prisma.settings.upsert({ where: { id: 1 }, update: {}, create: { id: 1 } });
   const accounts = await seedChart();
-  const owner = await seedOwner();
 
   console.log(`✓ شجرة الحسابات: ${accounts} حساباً`);
-  console.log(`✓ المستخدم: ${owner.email} / ${owner.password}`);
-  return owner;
+  return { accounts };
 }
 
-module.exports = { main, seedChart, seedOwner, CHART };
+module.exports = { main, seedChart, CHART };
+
+// لا يُبذر مستخدم هنا: المستخدمون في قاعدة النظام لا في قاعدة المنشأة،
+// وأول مالك يُنشأ في src/lib/systemBootstrap.js عند أول إقلاع.
 
 if (require.main === module) {
-  main()
+  // بذر قاعدة منشأة واحدة من سطر الأوامر:  node prisma/seed.js [slug]
+  const { runWithDb } = require('../src/lib/dbContext');
+  const { getBusinessDb } = require('../src/lib/businessDb');
+
+  const slug = process.argv[2] || 'main';
+  const db = getBusinessDb(slug);
+
+  runWithDb(db, main)
     .catch((err) => {
       console.error(err);
       process.exitCode = 1;
     })
-    .finally(() => prisma.$disconnect());
+    .finally(() => db.$disconnect());
 }

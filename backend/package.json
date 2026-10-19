@@ -6,11 +6,13 @@
   "scripts": {
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "prisma generate && prisma generate --schema prisma/system.prisma",
     "prisma:migrate": "prisma migrate dev",
     "prisma:push": "prisma db push",
     "seed": "node prisma/seed.js",
-    "test": "node --test \"test/*.test.js\""
+    "test": "node --test \"test/*.test.js\"",
+    "reset-password": "node scripts/reset-password.js",
+    "migrate:legacy": "node scripts/migrate-legacy.js"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",

@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 import { formatMoney } from '../lib/format';
 import { useSession } from '../lib/session';
 
@@ -93,6 +95,68 @@ export function DataTable({ columns, rows, loading, empty, rowKey, rowClass }) {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+/**
+ * حقل كلمة مرور بزر إظهار.
+ *
+ * الإظهار هنا لما يكتبه المستخدم الآن فقط. لا سبيل لعرض كلمة مرور محفوظة:
+ * فهي مخزَّنة بتجزئة bcrypt لا تُفك، ولا يعرفها الخادم نفسه.
+ */
+export function PasswordInput({ value, onChange, autoComplete = 'current-password', ...rest }) {
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <div className="pw-wrap">
+      <input
+        type={visible ? 'text' : 'password'}
+        value={value}
+        onChange={onChange}
+        autoComplete={autoComplete}
+        dir="ltr"
+        {...rest}
+      />
+      <button
+        type="button"
+        className="ghost sm pw-toggle"
+        onClick={() => setVisible((on) => !on)}
+        title={visible ? 'إخفاء كلمة المرور' : 'إظهار ما أكتبه'}
+        aria-label={visible ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور'}
+      >
+        {visible ? 'إخفاء' : 'إظهار'}
+      </button>
+    </div>
+  );
+}
+
+/** كلمة مرور مؤقتة تُعرض مرة واحدة، مع زر نسخ. */
+export function OneTimeSecret({ label = 'كلمة المرور المؤقتة', value, note }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="secret-box">
+      <div className="small muted">{label}</div>
+      <div className="spread">
+        <code className="secret-value" dir="ltr">{value}</code>
+        <button type="button" className="ghost sm" onClick={copy}>
+          {copied ? 'نُسخت' : 'نسخ'}
+        </button>
+      </div>
+      <div className="small muted">
+        {note || 'تُعرض مرة واحدة ولا يمكن استرجاعها. سلّمها لصاحبها، وسيضع كلمته عند أول دخول.'}
+      </div>
     </div>
   );
 }

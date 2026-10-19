@@ -120,7 +120,7 @@ router.post('/', requireWrite, async (req, res, next) => {
         },
       });
 
-      if (shouldPost) await postPayment(tx, payment, req.user.id);
+      if (shouldPost) await postPayment(tx, payment, req.user);
       return payment.id;
     });
 
@@ -175,7 +175,7 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({ where: { id: req.params.id } });
       if (!payment) throw notFound('السند غير موجود');
-      await postPayment(tx, payment, req.user.id);
+      await postPayment(tx, payment, req.user);
     });
     const row = await prisma.payment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     res.json({ payment: serialize.payment(row) });

@@ -107,7 +107,7 @@ router.post('/', requireWrite, async (req, res, next) => {
           lines: { create: lines },
         },
       });
-      if (shouldPost) await postAdjustment(tx, adjustment, req.user.id);
+      if (shouldPost) await postAdjustment(tx, adjustment, req.user);
       return adjustment.id;
     });
 
@@ -153,7 +153,7 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
     await prisma.$transaction(async (tx) => {
       const adjustment = await tx.stockAdjustment.findUnique({ where: { id: req.params.id } });
       if (!adjustment) throw notFound('التسوية غير موجودة');
-      await postAdjustment(tx, adjustment, req.user.id);
+      await postAdjustment(tx, adjustment, req.user);
     });
     const row = await prisma.stockAdjustment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     res.json({ adjustment: serialize.adjustment(row) });

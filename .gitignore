@@ -4,6 +4,11 @@ dist/
 .env
 .env.local
 backend/prisma/*.db
+backend/prisma/*.db.schema
+backend/prisma/*.backup-*
+backend/prisma/*.migrated-*
+backend/prisma/test-data/
+backend/prisma/businesses/
 backend/prisma/*.db-journal
 backend/uploads/
 .DS_Store

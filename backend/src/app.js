@@ -7,9 +7,11 @@ const express = require('express');
 const cors = require('cors');
 
 const { AppError } = require('./lib/errors');
-const { authenticate } = require('./lib/auth');
+const { authenticate, requirePasswordChanged, withBusiness, requireAdmin } = require('./lib/auth');
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const businessRoutes = require('./routes/businesses');
 const accountRoutes = require('./routes/accounts');
 const partyRoutes = require('./routes/parties');
 const journalRoutes = require('./routes/journal');
@@ -29,9 +31,18 @@ function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+  // الدخول وتغيير كلمة المرور: لا يلزمها منشأة، وبعضها قبل المصادقة
   app.use('/api/auth', authRoutes);
 
   app.use('/api', authenticate);
+  app.use('/api', requirePasswordChanged);
+
+  // إدارة النظام: قاعدة النظام لا قاعدة منشأة، فلا تمرّ بـ withBusiness
+  app.use('/api/admin/users', requireAdmin, userRoutes);
+  app.use('/api/admin/businesses', requireAdmin, businessRoutes);
+
+  // من هنا كل شيء داخل منشأة واحدة: withBusiness يصل الطلب بقاعدتها وحدها
+  app.use('/api', withBusiness);
   app.use('/api/accounts', accountRoutes);
   app.use('/api/parties', partyRoutes);
   app.use('/api/journal', journalRoutes);
