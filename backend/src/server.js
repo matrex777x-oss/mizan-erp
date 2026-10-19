@@ -1,6 +1,6 @@
 'use strict';
 
-const { ensureEnvFile, resolveDatabaseUrl, prepareDatabase } = require('./bootstrap');
+const { ensureEnvFile, resolveDatabaseUrl, ensureFrontendBuilt, prepareDatabase } = require('./bootstrap');
 
 ensureEnvFile();
 require('dotenv').config({ path: require('node:path').join(__dirname, '..', '.env') });
@@ -13,6 +13,7 @@ const port = Number(process.env.PORT || 4000);
 const host = process.env.HOST || '0.0.0.0';
 
 async function start() {
+  ensureFrontendBuilt();
   const credentials = await prepareDatabase();
 
   createApp().listen(port, host, () => {

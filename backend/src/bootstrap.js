@@ -41,6 +41,34 @@ function resolveDatabaseUrl() {
   return process.env.DATABASE_URL;
 }
 
+const PROJECT = path.join(ROOT, '..');
+
+/** يشغّل أمراً في مجلد ويُظهر مخرجاته للمستخدم. */
+function run(command, args, cwd) {
+  execFileSync(command, args, { cwd, env: process.env, stdio: 'inherit', shell: process.platform === 'win32' });
+}
+
+/**
+ * شبكة أمان: بعض المشغّلات تكتفي بـ `node index.js` دون خطوة بناء.
+ * إن كانت الواجهة غير مبنيّة نبنيها مرة واحدة عند الإقلاع.
+ */
+function ensureFrontendBuilt() {
+  const web = path.join(PROJECT, 'frontend');
+  if (!fs.existsSync(web)) return;
+  if (fs.existsSync(path.join(web, 'dist', 'index.html'))) return;
+
+  try {
+    if (!fs.existsSync(path.join(web, 'node_modules'))) {
+      console.log('… تثبيت حزم الواجهة (مرة واحدة)');
+      run('npm', ['install', '--no-audit', '--no-fund'], web);
+    }
+    console.log('… بناء الواجهة (مرة واحدة)');
+    run('npm', ['run', 'build'], web);
+  } catch {
+    console.warn('تعذّر بناء الواجهة تلقائياً — شغّل: npm run setup');
+  }
+}
+
 /** ينشئ الجداول إن لم تكن موجودة. */
 function pushSchema() {
   execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'db', 'push', '--skip-generate', '--accept-data-loss'], {
@@ -76,4 +104,4 @@ async function prepareDatabase() {
   return credentials;
 }
 
-module.exports = { ensureEnvFile, resolveDatabaseUrl, prepareDatabase, ROOT };
+module.exports = { ensureEnvFile, resolveDatabaseUrl, ensureFrontendBuilt, prepareDatabase, ROOT };

@@ -4,14 +4,17 @@
   "private": true,
   "description": "ميزان — نظام محاسبي عربي بالقيد المزدوج",
   "scripts": {
-    "setup": "npm --prefix backend install && npm --prefix frontend install && npm --prefix backend run prisma:generate && npm --prefix frontend run build",
     "start": "node backend/src/server.js",
-    "dev:api": "npm --prefix backend run dev",
-    "dev:web": "npm --prefix frontend run dev",
+    "setup": "npm --prefix backend install && npm --prefix frontend install && npm --prefix backend run prisma:generate && npm --prefix frontend run build",
+    "postinstall": "npm --prefix backend install --no-audit --no-fund && npm --prefix frontend install --no-audit --no-fund && npm --prefix frontend run build",
+    "build": "npm --prefix frontend run build",
     "test": "npm --prefix backend test",
-    "build": "npm --prefix frontend run build"
+    "serve": "node backend/src/server.js",
+    "dev:api": "npm --prefix backend run dev",
+    "dev:web": "npm --prefix frontend run dev"
   },
   "engines": {
     "node": ">=20"
-  }
+  },
+  "main": "index.js"
 }
