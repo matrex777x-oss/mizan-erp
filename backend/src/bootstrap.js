@@ -119,7 +119,7 @@ function ensurePrismaClient() {
     // لا نقارن بنسخة المخطط التي يضعها المولّد: هو يعيد تنسيقها فلا تطابق
     // الأصل حرفياً أبداً، فيبدو المخطط متغيّراً في كل إقلاع.
     const stampPath = path.join(outDir, '.mizan-schema');
-    const stamp = crypto.createHash('sha256').update(fs.readFileSync(schemaPath)).digest('hex');
+    const stamp = schemaStamp(schemaPath);
 
     let applied = null;
     try {
