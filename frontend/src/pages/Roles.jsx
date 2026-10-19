@@ -14,6 +14,7 @@ const GROUPS = [
   { label: 'المخزون', prefix: 'stock.' },
   { label: 'شجرة الحسابات', prefix: 'accounts.' },
   { label: 'القيود اليومية', prefix: 'journal.' },
+  { label: 'الإقفال السنوي', prefix: 'closing.' },
   { label: 'التقارير', prefix: 'reports.' },
   { label: 'إعدادات المنشأة', prefix: 'settings.' },
 ];

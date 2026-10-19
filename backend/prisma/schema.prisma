@@ -77,7 +77,7 @@ model JournalEntry {
   number   Int         @unique
   date     DateTime
   memo     String?
-  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | ADJUSTMENT | OPENING
+  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | ADJUSTMENT | OPENING | CLOSING
   // معرّف المستند الذي ولّد القيد (فاتورة أو سند) — لحذفه معه
   sourceId String?
 
@@ -88,9 +88,32 @@ model JournalEntry {
   createdAt   DateTime @default(now())
 
   lines JournalLine[]
+  fiscalClose FiscalClose?
 
   @@index([date])
   @@index([source, sourceId])
+}
+
+// إقفال سنة مالية: قيد يصفّر الإيرادات والمصروفات ويرحّل نتيجتها إلى الأرباح
+// المحتجزة. صفٌّ واحد لكل سنة مقفلة، وحذف قيده يعيد فتحها.
+model FiscalClose {
+  id String @id @default(cuid())
+
+  // أول يوم في السنة المالية وآخر يوم فيها — وتاريخ القيد هو آخر يوم
+  startDate DateTime
+  endDate   DateTime @unique
+
+  // صافي النتيجة المرحَّلة: موجب ربح وسالب خسارة، بالوحدة الصغرى
+  netResult BigInt
+
+  entryId String       @unique
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([endDate])
 }
 
 model JournalLine {

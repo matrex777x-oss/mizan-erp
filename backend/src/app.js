@@ -22,6 +22,7 @@ const itemRoutes = require('./routes/items');
 const adjustmentRoutes = require('./routes/adjustments');
 const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
+const closingRoutes = require('./routes/closing');
 
 function createApp() {
   const app = express();
@@ -54,6 +55,7 @@ function createApp() {
   app.use('/api/stock-adjustments', adjustmentRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/closing', closingRoutes);
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'المسار غير موجود' }));
 

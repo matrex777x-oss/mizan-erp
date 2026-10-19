@@ -43,6 +43,9 @@ const CAPABILITIES = {
   'accounts.read': 'عرض شجرة الحسابات',
   'accounts.write': 'تعديل شجرة الحسابات',
 
+  'closing.read': 'عرض الإقفالات السنوية',
+  'closing.manage': 'تنفيذ الإقفال السنوي وإعادة الفتح',
+
   'journal.read': 'عرض القيود اليومية',
   'journal.write': 'إنشاء وحذف القيود اليدوية',
 

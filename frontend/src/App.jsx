@@ -32,6 +32,7 @@ import LedgerReport from './pages/reports/Ledger.jsx';
 import Aging from './pages/reports/Aging.jsx';
 import StockReport from './pages/reports/Stock.jsx';
 import Settings from './pages/Settings.jsx';
+import Closing from './pages/Closing.jsx';
 
 function Routed() {
   const { user, loading, mustChangePassword, businessId, isAdmin } = useSession();
@@ -85,6 +86,7 @@ function Routed() {
         <Route path="reports/aging" element={<Aging />} />
 
         <Route path="settings" element={<Settings />} />
+        <Route path="closing" element={<Closing />} />
         <Route path="account" element={<Account />} />
         <Route path="roles" element={<Roles />} />
 
