@@ -5,7 +5,7 @@ const { toQuantity, toMinor, lineAmount } = require('../lib/money');
 const { optionalString } = require('../lib/validate');
 const { MOVE_DIRECTIONS, SYSTEM_ACCOUNTS } = require('../lib/constants');
 const { createEntry, deleteEntriesFor } = require('./ledger');
-const { recordIn, recordOut, removeMovesFor } = require('./stock');
+const { recordIn, recordOut, removeMovesFor, resolveWarehouse, defaultWarehouse } = require('./stock');
 const { systemAccount } = require('./invoices');
 
 /** يقرأ سطور التسوية ويتحقق من الأصناف. */
@@ -14,7 +14,10 @@ async function readLines(tx, rawLines) {
   const items = await tx.item.findMany({ where: { id: { in: itemIds } } });
   const byId = new Map(items.map((i) => [i.id, i]));
 
-  return rawLines.map((raw, index) => {
+  const fallback = await defaultWarehouse(tx);
+  const lines = [];
+
+  for (const [index, raw] of rawLines.entries()) {
     const position = index + 1;
     const item = byId.get(raw.itemId);
     if (!item) throw notFound(`صنف السطر ${position} غير موجود`);
@@ -30,22 +33,29 @@ async function readLines(tx, rawLines) {
     const unitCost = direction === 'IN' ? toMinor(raw.unitCost ?? 0) : 0n;
     if (unitCost < 0n) throw badRequest(`السطر ${position}: التكلفة لا تكون سالبة`);
 
-    return {
+    const warehouseId = raw.warehouseId
+      ? (await resolveWarehouse(tx, String(raw.warehouseId))).id
+      : fallback.id;
+
+    lines.push({
       itemId: item.id,
+      warehouseId,
       direction,
       quantity,
       unitCost,
       memo: optionalString(raw.memo, `بيان السطر ${position}`, { max: 255 }),
       sortOrder: index,
-    };
-  });
+    });
+  }
+
+  return lines;
 }
 
 /**
  * يرحّل التسوية: يحرّك المخزون ثم يقيّد الفرق مقابل الحساب المقابل المختار
  * (رأس المال للأرصدة الافتتاحية، أو حساب فروق الجرد للتالف والعجز).
  */
-async function postAdjustment(tx, adjustment, userId) {
+async function postAdjustment(tx, adjustment, actor) {
   if (adjustment.status === 'POSTED') throw badRequest('التسوية مُرحَّلة مسبقاً');
   if (adjustment.status === 'CANCELLED') throw badRequest('التسوية ملغاة');
 
@@ -68,6 +78,7 @@ async function postAdjustment(tx, adjustment, userId) {
       const totalCost = lineAmount(line.quantity, line.unitCost);
       await recordIn(tx, {
         itemId: line.itemId,
+        warehouseId: line.warehouseId,
         date: full.date,
         quantity: line.quantity,
         totalCost,
@@ -79,6 +90,7 @@ async function postAdjustment(tx, adjustment, userId) {
     } else {
       const move = await recordOut(tx, {
         itemId: line.itemId,
+        warehouseId: line.warehouseId,
         date: full.date,
         quantity: line.quantity,
         sourceType: 'ADJUSTMENT',
@@ -113,7 +125,7 @@ async function postAdjustment(tx, adjustment, userId) {
       memo,
       source: 'ADJUSTMENT',
       sourceId: full.id,
-      userId,
+      actor,
       lines,
     });
   }

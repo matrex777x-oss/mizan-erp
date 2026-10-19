@@ -3,7 +3,7 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
 const { badRequest, notFound } = require('../lib/errors');
 const { optionalString, requireDate, optionalDate, requireArray } = require('../lib/validate');
 const { createEntry, assertPeriodOpen } = require('../services/ledger');
@@ -11,7 +11,7 @@ const serialize = require('../lib/serialize');
 
 const router = express.Router();
 
-router.get('/', async (req, res, next) => {
+router.get('/', requireCapability('journal.read'), async (req, res, next) => {
   try {
     const take = Math.min(Number(req.query.limit) || 50, 200);
     const skip = Math.max(Number(req.query.offset) || 0, 0);
@@ -31,7 +31,6 @@ router.get('/', async (req, res, next) => {
         take,
         skip,
         include: {
-          createdBy: { select: { id: true, name: true } },
           lines: { include: { account: true, party: true } },
         },
       }),
@@ -44,12 +43,11 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireCapability('journal.read'), async (req, res, next) => {
   try {
     const row = await prisma.journalEntry.findUnique({
       where: { id: req.params.id },
       include: {
-        createdBy: { select: { id: true, name: true } },
         lines: { include: { account: true, party: true } },
       },
     });
@@ -60,20 +58,19 @@ router.get('/:id', async (req, res, next) => {
   }
 });
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', requireCapability('journal.write'), async (req, res, next) => {
   try {
     const date = requireDate(req.body?.date, 'التاريخ');
     const memo = optionalString(req.body?.memo, 'البيان', { max: 500 });
     const lines = requireArray(req.body?.lines, 'سطور القيد', { min: 2 });
 
     const entry = await prisma.$transaction((tx) =>
-      createEntry(tx, { date, memo, source: 'MANUAL', userId: req.user.id, lines }),
+      createEntry(tx, { date, memo, source: 'MANUAL', actor: req.user, lines }),
     );
 
     const full = await prisma.journalEntry.findUnique({
       where: { id: entry.id },
       include: {
-        createdBy: { select: { id: true, name: true } },
         lines: { include: { account: true, party: true } },
       },
     });
@@ -83,7 +80,7 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', requireCapability('journal.write'), async (req, res, next) => {
   try {
     const current = await prisma.journalEntry.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('القيد غير موجود');

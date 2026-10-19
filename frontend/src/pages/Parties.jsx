@@ -10,7 +10,8 @@ import { useSession } from '../lib/session';
 const EMPTY = { kind: 'CUSTOMER', name: '', phone: '', email: '', taxNumber: '', address: '', notes: '' };
 
 export default function Parties() {
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can('parties.write');
   const [kind, setKind] = useState('');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(null);

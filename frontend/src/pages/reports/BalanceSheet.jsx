@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Card, Loading, Money, PageHead } from '../../components/ui.jsx';
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
+import ExportButtons from '../../components/ExportButtons.jsx';
 
 function Section({ title, rows, total, totalLabel, extra }) {
   return (
@@ -44,6 +45,28 @@ export default function BalanceSheet() {
     <>
       <PageHead title="المركز المالي" subtitle="الأصول = الالتزامات + حقوق الملكية + نتيجة الفترة">
         <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} style={{ width: 150 }} />
+        <ExportButtons
+          title="المركز المالي"
+          subtitle={data?.to ? `حتى ${data.to}` : 'حتى آخر حركة'}
+          columns={[{ label: 'البند' }, { label: 'المبلغ', numeric: true }]}
+          rows={
+            data
+              ? [
+                  ['الأصول', ''],
+                  ...data.assets.map((row) => [`${row.code} — ${row.name}`, row.amount]),
+                  ['إجمالي الأصول', data.totals.assets],
+                  ['الالتزامات', ''],
+                  ...data.liabilities.map((row) => [`${row.code} — ${row.name}`, row.amount]),
+                  ['إجمالي الالتزامات', data.totals.liabilities],
+                  ['حقوق الملكية', ''],
+                  ...data.equity.map((row) => [`${row.code} — ${row.name}`, row.amount]),
+                  ['نتيجة الفترة', data.totals.netProfit],
+                  ['إجمالي حقوق الملكية', data.totals.equityWithProfit],
+                ]
+              : []
+          }
+          totals={data ? ['الأصول = الالتزامات + حقوق الملكية', data.totals.assets] : null}
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 

@@ -202,15 +202,13 @@ test('الصلاحيات: المُطّلع لا يكتب', async (t) => {
   const api = await startServer();
   t.after(() => api.close());
 
-  const bcrypt = require('bcryptjs');
-  const prisma = require('../src/lib/prisma');
-  await prisma.user.create({
-    data: {
-      email: 'viewer@mizan.local',
-      name: 'مُطّلع',
-      password: await bcrypt.hash('Viewer@12345', 10),
-      role: 'VIEWER',
-    },
+  // المستخدمون في قاعدة النظام، والدور لكل منشأة على حدة
+  await api.createUser({
+    email: 'viewer@mizan.local',
+    name: 'مُطّلع',
+    pass: 'Viewer@12345',
+    businessId: api.seeded.business.id,
+    role: 'VIEWER',
   });
 
   await api.login('viewer@mizan.local', 'Viewer@12345');

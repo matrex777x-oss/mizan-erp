@@ -8,7 +8,8 @@ import { formatDate, SOURCE_LABELS } from '../lib/format';
 import { useSession } from '../lib/session';
 
 export default function Journal() {
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can('journal.write');
   const [range, setRange] = useState({ from: '', to: '' });
   const [source, setSource] = useState('');
   const [error, setError] = useState(null);

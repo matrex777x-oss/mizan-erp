@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { Alert, Field } from '../components/ui.jsx';
+import { Alert, Field, PasswordInput } from '../components/ui.jsx';
 import { useSession } from '../lib/session';
 
 export default function Login() {
@@ -48,13 +48,11 @@ export default function Login() {
             />
           </Field>
           <Field label="كلمة المرور">
-            <input
-              type="password"
+            <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               required
-              dir="ltr"
             />
           </Field>
           <button type="submit" className="primary" disabled={busy}>

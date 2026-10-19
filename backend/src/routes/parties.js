@@ -3,7 +3,7 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
 const { badRequest, notFound } = require('../lib/errors');
 const { requireString, optionalString, requireEnum } = require('../lib/validate');
 const { PARTY_KINDS, SYSTEM_ACCOUNTS } = require('../lib/constants');
@@ -28,7 +28,7 @@ async function balancesFor(partyIds) {
   );
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', requireCapability('parties.read'), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.kind) {
@@ -58,7 +58,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireCapability('parties.read'), async (req, res, next) => {
   try {
     const row = await prisma.party.findUnique({ where: { id: req.params.id } });
     if (!row) throw notFound('الطرف غير موجود');
@@ -81,7 +81,7 @@ async function nextPartyCode(kind) {
   return `${prefix}${String((Number.isFinite(seq) ? seq : 0) + 1).padStart(4, '0')}`;
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', requireCapability('parties.write'), async (req, res, next) => {
   try {
     const kind = requireEnum(req.body?.kind, PARTY_KINDS, 'النوع');
     const data = {
@@ -102,7 +102,7 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', requireCapability('parties.write'), async (req, res, next) => {
   try {
     const current = await prisma.party.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الطرف غير موجود');
@@ -126,7 +126,7 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', requireCapability('parties.write'), async (req, res, next) => {
   try {
     const current = await prisma.party.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الطرف غير موجود');

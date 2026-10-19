@@ -56,7 +56,8 @@ function journalEntry(row) {
     memo: row.memo,
     source: row.source,
     sourceId: row.sourceId,
-    createdBy: row.createdBy ? { id: row.createdBy.id, name: row.createdBy.name } : undefined,
+    // لقطة محفوظة في القيد نفسه؛ المستخدم في قاعدة النظام فلا علاقة تُضَم هنا
+    createdBy: row.createdById || row.createdByName ? { id: row.createdById, name: row.createdByName } : undefined,
     createdAt: row.createdAt,
     lines: (row.lines || []).map(journalLine),
     totalDebit: money((row.lines || []).reduce((sum, l) => sum + l.debit, 0n)),
@@ -201,12 +202,28 @@ function payment(row, extra = {}) {
 function settings(row) {
   return {
     companyName: row.companyName,
+    taxNumber: row.taxNumber,
+    address: row.address,
+    phone: row.phone,
+    email: row.email,
+
     currencyCode: row.currencyCode,
     currencySymbol: row.currencySymbol,
     decimalPlaces: row.decimalPlaces,
     fiscalYearStart: row.fiscalYearStart,
     defaultTaxRate: fromRate(row.defaultTaxRate),
     lockDate: day(row.lockDate),
+
+    prefixSales: row.prefixSales,
+    prefixPurchase: row.prefixPurchase,
+    prefixReceipt: row.prefixReceipt,
+    prefixPayment: row.prefixPayment,
+    prefixAdjustment: row.prefixAdjustment,
+    prefixTransfer: row.prefixTransfer,
+    numberIncludeYear: row.numberIncludeYear,
+    numberPadding: row.numberPadding,
+
+    inventoryEnabled: row.inventoryEnabled,
   };
 }
 

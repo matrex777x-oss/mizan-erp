@@ -11,17 +11,8 @@ datasource db {
 }
 
 
-model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      String   @default("ACCOUNTANT") // OWNER | ACCOUNTANT | VIEWER
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
-
-  journalEntries JournalEntry[]
-}
+// المستخدمون وصلاحياتهم في قاعدة النظام المركزية لا هنا — انظر system.prisma.
+// قاعدة المنشأة بيانات محاسبية خالصة، فيمكن نسخها ونقلها ونسخها احتياطياً وحدها.
 
 // ───────────────────────── شجرة الحسابات ─────────────────────────
 
@@ -49,6 +40,9 @@ model Account {
   itemsInventory Item[] @relation("ItemInventoryAccount")
   itemsCogs      Item[] @relation("ItemCogsAccount")
   adjustments    StockAdjustment[] @relation("AdjustmentCounterAccount")
+  assetsCost        FixedAsset[] @relation("AssetCostAccount")
+  assetsAccumulated FixedAsset[] @relation("AssetAccumulatedAccount")
+  assetsExpense     FixedAsset[] @relation("AssetExpenseAccount")
 
   @@index([type])
   @@index([parentId])
@@ -86,18 +80,44 @@ model JournalEntry {
   number   Int         @unique
   date     DateTime
   memo     String?
-  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | ADJUSTMENT | OPENING
+  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | ADJUSTMENT | OPENING | CLOSING
   // معرّف المستند الذي ولّد القيد (فاتورة أو سند) — لحذفه معه
   sourceId String?
 
-  createdById String?
-  createdBy   User?   @relation(fields: [createdById], references: [id])
+  // المستخدم في قاعدة النظام لا هنا، فلا علاقة أجنبية. والاسم لقطة تُحفظ لحظة
+  // الترحيل فيبقى أثر المسؤولية مقروءاً حتى لو حُذف المستخدم لاحقاً.
+  createdById   String?
+  createdByName String?
   createdAt   DateTime @default(now())
 
   lines JournalLine[]
+  fiscalClose FiscalClose?
+  depreciations Depreciation[]
 
   @@index([date])
   @@index([source, sourceId])
+}
+
+// إقفال سنة مالية: قيد يصفّر الإيرادات والمصروفات ويرحّل نتيجتها إلى الأرباح
+// المحتجزة. صفٌّ واحد لكل سنة مقفلة، وحذف قيده يعيد فتحها.
+model FiscalClose {
+  id String @id @default(cuid())
+
+  // أول يوم في السنة المالية وآخر يوم فيها — وتاريخ القيد هو آخر يوم
+  startDate DateTime
+  endDate   DateTime @unique
+
+  // صافي النتيجة المرحَّلة: موجب ربح وسالب خسارة، بالوحدة الصغرى
+  netResult BigInt
+
+  entryId String       @unique
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([endDate])
 }
 
 model JournalLine {
@@ -183,6 +203,10 @@ model InvoiceLine {
 
   sortOrder Int @default(0)
 
+  // المستودع الذي يخرج منه الصنف أو يدخل إليه — للأصناف المخزنية وحدها
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
   @@index([invoiceId])
   @@index([itemId])
 }
@@ -244,7 +268,28 @@ model Settings {
   defaultTaxRate  Int      @default(0) // بالعُشر من المئة
   // لا يُسمح بقيود قبل هذا التاريخ (إقفال فترة)
   lockDate        DateTime?
-  updatedAt       DateTime @updatedAt
+
+  // بيانات تُطبع على الفواتير والتقارير
+  taxNumber String?
+  address   String?
+  phone     String?
+  email     String?
+
+  // ترقيم المستندات: البادئة لكل نوع، وهل يدخل العام في الرقم، وعدد الخانات.
+  // تغيير البادئة يبدأ تسلسلاً جديداً من 1 ولا يمسّ أرقام المستندات القائمة.
+  prefixSales      String  @default("INV")
+  prefixPurchase   String  @default("PUR")
+  prefixReceipt    String  @default("RCT")
+  prefixPayment    String  @default("PMT")
+  prefixAdjustment String  @default("ADJ")
+  prefixTransfer   String  @default("TRF")
+  numberIncludeYear Boolean @default(true)
+  numberPadding     Int     @default(4)
+
+  // وحدة المخزون: تُعطَّل للمنشآت الخدمية فتختفي شاشاتها وتُرفض حركاتها
+  inventoryEnabled Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
 }
 
 // ───────────────────────── الأصناف والمخزون ─────────────────────────
@@ -288,6 +333,8 @@ model Item {
   moves        StockMove[]
   invoiceLines InvoiceLine[]
   adjustmentLines StockAdjustmentLine[]
+  stocks       ItemStock[]
+  transferLines StockTransferLine[]
 
   @@index([kind])
   @@index([name])
@@ -311,13 +358,17 @@ model StockMove {
   balanceQty   BigInt
   balanceValue BigInt
 
-  // INVOICE | ADJUSTMENT
+  // INVOICE | ADJUSTMENT | TRANSFER
   sourceType String
   sourceId   String?
   memo       String?
   createdAt  DateTime @default(now())
 
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
   @@index([itemId, date])
+  @@index([itemId, warehouseId, date])
   @@index([sourceType, sourceId])
 }
 
@@ -359,6 +410,171 @@ model StockAdjustmentLine {
   memo      String?
   sortOrder Int    @default(0)
 
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id])
+
   @@index([adjustmentId])
   @@index([itemId])
+}
+
+// ───────────────────────── الأصول الثابتة ─────────────────────────
+
+// أصل ثابت يُهلَك على عمره الإنتاجي. حساباته مذكورة في البطاقة نفسها لا
+// بمفاتيح نظامية، فتعمل على شجرة حسابات أي منشأة قائمة دون إضافة حسابات.
+model FixedAsset {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  acquiredAt DateTime
+  // التكلفة والقيمة التخريدية بالوحدة الصغرى
+  cost         BigInt
+  salvageValue BigInt @default(0)
+
+  // STRAIGHT_LINE: قسط ثابت — DECLINING_BALANCE: قسط متناقص على الرصيد الدفتري
+  method           String @default("STRAIGHT_LINE")
+  usefulLifeMonths Int    @default(60)
+  // نسبة القسط المتناقص السنوية بالعُشر من المئة (20% => 2000)
+  decliningRate    Int    @default(0)
+
+  assetAccountId       String
+  assetAccount         Account @relation("AssetCostAccount", fields: [assetAccountId], references: [id])
+  accumulatedAccountId String
+  accumulatedAccount   Account @relation("AssetAccumulatedAccount", fields: [accumulatedAccountId], references: [id])
+  expenseAccountId     String
+  expenseAccount       Account @relation("AssetExpenseAccount", fields: [expenseAccountId], references: [id])
+
+  // ACTIVE | DISPOSED
+  status           String    @default("ACTIVE")
+  disposedAt       DateTime?
+  disposalProceeds BigInt    @default(0)
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  depreciations Depreciation[]
+
+  @@index([status])
+  @@index([acquiredAt])
+}
+
+// دفعة إهلاك لأصل في فترة. القيد يحمل كل أصول الدفعة، والصف هنا يربط الأصل بها.
+model Depreciation {
+  id      String     @id @default(cuid())
+  assetId String
+  asset   FixedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // آخر يوم في الفترة المُهلَكة
+  periodEnd DateTime
+  months    Int    @default(1)
+  amount    BigInt
+  // الرصيد الدفتري بعد هذه الدفعة — يُقرأ منه الرصيد دون إعادة حساب التاريخ كله
+  bookValueAfter BigInt
+
+  entryId String
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, periodEnd])
+  @@index([periodEnd])
+  @@index([entryId])
+}
+
+// ───────────────────────── المستودعات ─────────────────────────
+
+// مستودع يُتابَع رصيد كل صنف وتكلفته فيه على حدة. المتوسط المرجّح يُطبَّق لكل
+// مستودع وحده، فالبضاعة المشتراة بتكلفتين في مكانين لا يختلط متوسطها.
+model Warehouse {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+
+  // مستودع واحد افتراضي يُستعمل حين لا يحدِّد المستند مستودعاً
+  isDefault Boolean @default(false)
+  active    Boolean @default(true)
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks          ItemStock[]
+  moves           StockMove[]
+  invoiceLines    InvoiceLine[]
+  adjustmentLines StockAdjustmentLine[]
+  transfersOut    StockTransfer[] @relation("TransferFrom")
+  transfersIn     StockTransfer[] @relation("TransferTo")
+
+  @@index([active])
+}
+
+// رصيد صنف في مستودع. مجموع هذه الصفوف هو رصيد الصنف الكلي في بطاقته.
+model ItemStock {
+  id String @id @default(cuid())
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id])
+
+  onHand     BigInt @default(0)
+  stockValue BigInt @default(0)
+
+  @@unique([itemId, warehouseId])
+  @@index([warehouseId])
+}
+
+// تحويل بضاعة بين مستودعين. لا يمسّ الدفتر: البضاعة تخرج من مكان وتدخل آخر
+// بالتكلفة نفسها، وحساب المخزون واحد — فالقيد يكون من المخزون إلى المخزون.
+model StockTransfer {
+  id     String   @id @default(cuid())
+  number String   @unique
+  date   DateTime
+
+  fromWarehouseId String
+  fromWarehouse   Warehouse @relation("TransferFrom", fields: [fromWarehouseId], references: [id])
+  toWarehouseId   String
+  toWarehouse     Warehouse @relation("TransferTo", fields: [toWarehouseId], references: [id])
+
+  // DRAFT | POSTED | CANCELLED
+  status String  @default("DRAFT")
+  notes  String?
+
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  lines StockTransferLine[]
+
+  @@index([date])
+  @@index([status])
+}
+
+model StockTransferLine {
+  id         String        @id @default(cuid())
+  transferId String
+  transfer   StockTransfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  quantity  BigInt
+  memo      String?
+  sortOrder Int     @default(0)
+
+  @@index([transferId])
+  @@index([itemId])
+}
+
+// ───────────────────────── ترحيل البيانات ─────────────────────────
+
+// ما نُفِّذ من ترحيلات البيانات على هذه القاعدة. مواءمة الجداول (db push) لا
+// تملأ بيانات، وبعض التغييرات تحتاج ملء صفوف قائمة — تُسجَّل هنا لتُنفَّذ مرة.
+model DataMigration {
+  name      String   @id
+  appliedAt DateTime @default(now())
+  note      String?
 }

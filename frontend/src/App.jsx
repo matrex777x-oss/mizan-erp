@@ -5,6 +5,14 @@ import { Loading } from './components/ui.jsx';
 import { SessionProvider, useSession } from './lib/session';
 
 import Login from './pages/Login.jsx';
+import ChangePassword from './pages/ChangePassword.jsx';
+import SelectBusiness from './pages/SelectBusiness.jsx';
+import Account from './pages/Account.jsx';
+import Roles from './pages/Roles.jsx';
+import Users from './pages/admin/Users.jsx';
+import Businesses from './pages/admin/Businesses.jsx';
+import AuditLog from './pages/admin/AuditLog.jsx';
+import System from './pages/admin/System.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Parties from './pages/Parties.jsx';
@@ -24,9 +32,12 @@ import LedgerReport from './pages/reports/Ledger.jsx';
 import Aging from './pages/reports/Aging.jsx';
 import StockReport from './pages/reports/Stock.jsx';
 import Settings from './pages/Settings.jsx';
+import Closing from './pages/Closing.jsx';
+import Assets from './pages/Assets.jsx';
+import Warehouses from './pages/Warehouses.jsx';
 
 function Routed() {
-  const { user, loading } = useSession();
+  const { user, loading, mustChangePassword, businessId, isAdmin } = useSession();
 
   if (loading) return <Loading label="جارٍ فتح الجلسة…" />;
   if (!user) {
@@ -37,6 +48,12 @@ function Routed() {
       </Routes>
     );
   }
+
+  // كل المسارات مسدودة في الخادم حتى تُرفع كلمة المرور المؤقتة، فلا نُظهر غيرها
+  if (mustChangePassword) return <ChangePassword />;
+
+  // لا منشأة مختارة: إمّا أكثر من منشأة فيختار، أو لا منشأة فيُخبَر
+  if (!businessId) return <SelectBusiness />;
 
   return (
     <Routes>
@@ -71,6 +88,21 @@ function Routed() {
         <Route path="reports/aging" element={<Aging />} />
 
         <Route path="settings" element={<Settings />} />
+        <Route path="closing" element={<Closing />} />
+        <Route path="assets" element={<Assets />} />
+        <Route path="warehouses" element={<Warehouses />} />
+        <Route path="account" element={<Account />} />
+        <Route path="roles" element={<Roles />} />
+
+        {isAdmin && (
+          <>
+            <Route path="admin/users" element={<Users />} />
+            <Route path="admin/businesses" element={<Businesses />} />
+            <Route path="admin/audit" element={<AuditLog />} />
+            <Route path="admin/system" element={<System />} />
+          </>
+        )}
+
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

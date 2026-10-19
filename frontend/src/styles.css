@@ -291,3 +291,39 @@ tr.total td { font-weight: 700; background: var(--surface-2); border-top: 2px so
   .card { box-shadow: none; border-color: #ccc; }
   .content { padding: 0; }
 }
+
+/* ───────── كلمات المرور وبطاقة السرّ لمرة واحدة ───────── */
+.pw-wrap { display: flex; gap: 6px; align-items: stretch; }
+.pw-wrap input { flex: 1; min-width: 0; }
+.pw-toggle { white-space: nowrap; border: 1px solid var(--line); }
+
+.secret-box {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px; border: 1px dashed var(--line); border-radius: 10px;
+  background: var(--surface-2, transparent);
+}
+.secret-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.05rem; letter-spacing: .02em; user-select: all;
+}
+
+/* ───────── مبدّل المنشآت ───────── */
+.biz-switch { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.biz-switch select { width: 100%; }
+.biz-pick-list { display: flex; flex-direction: column; gap: 10px; }
+.biz-pick {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  padding: 14px 16px; border: 1px solid var(--line); border-radius: 10px;
+  background: transparent; text-align: start; cursor: pointer; width: 100%;
+}
+.biz-pick:hover { border-color: var(--brand); }
+.biz-pick-name { font-weight: 600; }
+
+/* خيار واحد بمربّع اختيار في سطر */
+.field-inline { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.field-inline input[type='checkbox'] { width: auto; margin: 0; }
+
+/* ───────── مصفوفة الصلاحيات ───────── */
+.group-row td { background: var(--surface-2, rgba(127,127,127,.06)); }
+.yes { color: var(--ok, #16a34a); font-weight: 700; }
+.no { color: var(--muted, #9ca3af); }

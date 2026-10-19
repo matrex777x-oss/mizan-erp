@@ -3,7 +3,8 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
+const { assertInventoryEnabled } = require('../lib/modules');
 const { badRequest, notFound } = require('../lib/errors');
 const { requireString, optionalString, requireEnum } = require('../lib/validate');
 const { ITEM_KINDS, SYSTEM_ACCOUNTS } = require('../lib/constants');
@@ -32,7 +33,7 @@ async function nextItemCode() {
   return `IT-${String((Number.isFinite(seq) ? seq : 0) + 1).padStart(4, '0')}`;
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', requireCapability('items.read'), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.kind) where.kind = requireEnum(req.query.kind, ITEM_KINDS, 'النوع');
@@ -48,7 +49,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireCapability('items.read'), async (req, res, next) => {
   try {
     const row = await prisma.item.findUnique({ where: { id: req.params.id } });
     if (!row) throw notFound('الصنف غير موجود');
@@ -99,9 +100,11 @@ async function readPayload(body, { partial = false } = {}) {
   return data;
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', requireCapability('items.write'), async (req, res, next) => {
   try {
     const data = await readPayload(req.body);
+    if (data.kind === 'STOCK') await assertInventoryEnabled();
+
     if (data.kind === 'SERVICE' && !data.expenseAccountId) {
       // الخدمة بلا حساب مصروف لا يمكن شراؤها، لكن بيعها جائز — ننبّه فقط عند الشراء
       data.expenseAccountId = null;
@@ -115,12 +118,13 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', requireCapability('items.write'), async (req, res, next) => {
   try {
     const current = await prisma.item.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الصنف غير موجود');
 
     const data = await readPayload(req.body, { partial: true });
+    if (data.kind === 'STOCK' && current.kind !== 'STOCK') await assertInventoryEnabled();
 
     if (data.kind && data.kind !== current.kind) {
       const moves = await prisma.stockMove.count({ where: { itemId: current.id } });
@@ -134,7 +138,7 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', requireCapability('items.write'), async (req, res, next) => {
   try {
     const current = await prisma.item.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الصنف غير موجود');
@@ -156,7 +160,7 @@ router.delete('/:id', requireWrite, async (req, res, next) => {
 });
 
 /** الحسابات الافتراضية المقترحة عند إنشاء صنف جديد. */
-router.get('/meta/defaults', async (_req, res, next) => {
+router.get('/meta/defaults', requireCapability('items.read'), async (_req, res, next) => {
   try {
     const keys = [SYSTEM_ACCOUNTS.INVENTORY, SYSTEM_ACCOUNTS.COGS];
     const accounts = await prisma.account.findMany({ where: { systemKey: { in: keys } } });

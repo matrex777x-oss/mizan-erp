@@ -14,11 +14,15 @@ const TITLES = {
   PAYMENT: { title: 'سندات الصرف', party: 'المورد', action: 'سند صرف جديد', hint: 'مبالغ مدفوعة للموردين' },
 };
 
+const CAPABILITY_PREFIX = { RECEIPT: 'receipt', PAYMENT: 'expense' };
+
 export default function Payments() {
   const { kind: slug } = useParams();
   const kind = KIND_BY_SLUG[slug] || 'RECEIPT';
   const labels = TITLES[kind];
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can(`${CAPABILITY_PREFIX[kind]}.write`);
+  const canPost = can(`${CAPABILITY_PREFIX[kind]}.post`);
   const [status, setStatus] = useState('');
 
   const payments = useAsync(() => api.get(`/payments${query({ kind, status, limit: 100 })}`), [kind, status]);

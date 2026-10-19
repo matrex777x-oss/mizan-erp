@@ -23,7 +23,8 @@ const EMPTY = {
 };
 
 export default function Items() {
-  const { canWrite, settings } = useSession();
+  const { can, settings } = useSession();
+  const canWrite = can('items.write');
   const [kind, setKind] = useState('');
   const [search, setSearch] = useState('');
   const [form, setForm] = useState(null);

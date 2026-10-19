@@ -3,8 +3,9 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
-const { badRequest, notFound } = require('../lib/errors');
+const { assertPaymentCapability } = require('../lib/auth');
+const { allowedPaymentKinds } = require('../lib/capabilities');
+const { badRequest, forbidden, notFound } = require('../lib/errors');
 const { requireString, optionalString, requireEnum, requireDate, optionalDate } = require('../lib/validate');
 const { PAYMENT_KINDS, DOC_STATUSES } = require('../lib/constants');
 const { toMinor } = require('../lib/money');
@@ -25,8 +26,17 @@ router.get('/', async (req, res, next) => {
     const take = Math.min(Number(req.query.limit) || 50, 200);
     const skip = Math.max(Number(req.query.offset) || 0, 0);
 
+    const kinds = allowedPaymentKinds(req.role);
+    if (!kinds.length) throw forbidden('لا تملك صلاحية عرض السندات');
+
     const where = {};
-    if (req.query.kind) where.kind = requireEnum(req.query.kind, PAYMENT_KINDS, 'النوع');
+    if (req.query.kind) {
+      const kind = requireEnum(req.query.kind, PAYMENT_KINDS, 'النوع');
+      assertPaymentCapability(req, kind, 'read');
+      where.kind = kind;
+    } else {
+      where.kind = { in: kinds };
+    }
     if (req.query.status) where.status = requireEnum(req.query.status, DOC_STATUSES, 'الحالة');
     if (req.query.partyId) where.partyId = String(req.query.partyId);
     const from = optionalDate(req.query.from, 'من تاريخ');
@@ -54,6 +64,8 @@ router.get('/:id', async (req, res, next) => {
   try {
     const row = await prisma.payment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     if (!row) throw notFound('السند غير موجود');
+    assertPaymentCapability(req, row.kind, 'read');
+
     const entry = await prisma.journalEntry.findFirst({
       where: { source: 'PAYMENT', sourceId: row.id },
       select: { id: true, number: true },
@@ -94,9 +106,11 @@ async function readPayload(body, kind) {
   };
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const kind = requireEnum(req.body?.kind, PAYMENT_KINDS, 'النوع');
+    assertPaymentCapability(req, kind, 'write');
+    if (req.body?.post === true) assertPaymentCapability(req, kind, 'post');
     const payload = await readPayload(req.body, kind);
     const shouldPost = req.body?.post === true;
 
@@ -120,7 +134,7 @@ router.post('/', requireWrite, async (req, res, next) => {
         },
       });
 
-      if (shouldPost) await postPayment(tx, payment, req.user.id);
+      if (shouldPost) await postPayment(tx, payment, req.user);
       return payment.id;
     });
 
@@ -131,10 +145,11 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const current = await prisma.payment.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('السند غير موجود');
+    assertPaymentCapability(req, current.kind, 'write');
     if (current.status !== 'DRAFT') throw badRequest('لا يمكن تعديل سند مُرحَّل أو ملغى');
 
     const payload = await readPayload(req.body, current.kind);
@@ -170,12 +185,13 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/post', requireWrite, async (req, res, next) => {
+router.post('/:id/post', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({ where: { id: req.params.id } });
       if (!payment) throw notFound('السند غير موجود');
-      await postPayment(tx, payment, req.user.id);
+      assertPaymentCapability(req, payment.kind, 'post');
+      await postPayment(tx, payment, req.user);
     });
     const row = await prisma.payment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     res.json({ payment: serialize.payment(row) });
@@ -184,11 +200,12 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/unpost', requireWrite, async (req, res, next) => {
+router.post('/:id/unpost', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({ where: { id: req.params.id } });
       if (!payment) throw notFound('السند غير موجود');
+      assertPaymentCapability(req, payment.kind, 'post');
       await unpostPayment(tx, payment);
     });
     const row = await prisma.payment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
@@ -198,11 +215,12 @@ router.post('/:id/unpost', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/cancel', requireWrite, async (req, res, next) => {
+router.post('/:id/cancel', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const payment = await tx.payment.findUnique({ where: { id: req.params.id } });
       if (!payment) throw notFound('السند غير موجود');
+      assertPaymentCapability(req, payment.kind, 'post');
       if (payment.status === 'CANCELLED') throw badRequest('السند ملغى مسبقاً');
       if (payment.status === 'POSTED') await unpostPayment(tx, payment);
       await tx.paymentAllocation.deleteMany({ where: { paymentId: payment.id } });
@@ -215,10 +233,11 @@ router.post('/:id/cancel', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const current = await prisma.payment.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('السند غير موجود');
+    assertPaymentCapability(req, current.kind, 'write');
     if (current.status === 'POSTED') throw badRequest('ألغِ ترحيل السند قبل حذفه');
     await prisma.payment.delete({ where: { id: current.id } });
     res.json({ ok: true });

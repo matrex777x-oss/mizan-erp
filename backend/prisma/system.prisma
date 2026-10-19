@@ -1,0 +1,94 @@
+// قاعدة النظام المركزية — مشتركة بين كل المنشآت
+//
+// لا تحوي أي بيانات محاسبية: فقط من يدخل، وما المنشآت الموجودة، ومن يصل إلى أيّها.
+// بيانات كل منشأة في قاعدتها المستقلة (انظر schema.prisma و lib/businessDb.js)،
+// فلا يمكن لاستعلام في منشأة أن يرى بيانات منشأة أخرى أصلاً.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/system-client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("SYSTEM_DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  name     String
+  password String // bcrypt — تجزئة لا تُفك، فلا سبيل لعرض كلمة المرور
+
+  // آدمن النظام: يدير المنشآت وكل المستخدمين. الدور المحاسبي لكل منشأة في Membership
+  isAdmin Boolean @default(false)
+
+  // يُلزم المستخدم بوضع كلمة جديدة قبل أي شيء آخر (أول دخول أو بعد إعادة تعيين)
+  mustChangePassword Boolean @default(false)
+
+  active      Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  memberships Membership[]
+  auditLogs   AuditLog[]
+}
+
+model Business {
+  id   String @id @default(cuid())
+  name String
+
+  // اسم ملف قاعدة المنشأة داخل DATA_DIR/businesses — ثابت لا يتغيّر بتغيّر الاسم
+  slug String @unique
+
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships Membership[]
+  auditLogs   AuditLog[]
+}
+
+// وصول مستخدم إلى منشأة بدور معيّن. الدور لكل منشأة لا للمستخدم،
+// فقد يكون مالكاً في منشأة ومحاسباً في أخرى.
+model Membership {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  role String // OWNER | ACCOUNTANT | VIEWER
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, businessId])
+  @@index([businessId])
+}
+
+// سجل تدقيق لما يمسّ الحسابات والصلاحيات. أسماء المستخدمين والمنشآت محفوظة
+// كلقطة نصية أيضاً، ليبقى السجل مقروءاً بعد حذف صاحبه.
+model AuditLog {
+  id String   @id @default(cuid())
+  at DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+  userName String
+
+  businessId String?
+  business   Business? @relation(fields: [businessId], references: [id])
+
+  // LOGIN | LOGIN_FAILED | PASSWORD_CHANGE | PASSWORD_RESET | USER_CREATE |
+  // USER_UPDATE | USER_DEACTIVATE | BUSINESS_CREATE | BUSINESS_UPDATE
+  action String
+  target String? // الكيان المتأثر: معرّف مستخدم أو منشأة
+  detail String?
+  ip     String?
+
+  @@index([at])
+  @@index([action])
+}

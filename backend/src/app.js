@@ -7,9 +7,12 @@ const express = require('express');
 const cors = require('cors');
 
 const { AppError } = require('./lib/errors');
-const { authenticate } = require('./lib/auth');
+const { authenticate, requirePasswordChanged, withBusiness, requireAdmin } = require('./lib/auth');
 
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const businessRoutes = require('./routes/businesses');
+const systemRoutes = require('./routes/system');
 const accountRoutes = require('./routes/accounts');
 const partyRoutes = require('./routes/parties');
 const journalRoutes = require('./routes/journal');
@@ -19,6 +22,10 @@ const itemRoutes = require('./routes/items');
 const adjustmentRoutes = require('./routes/adjustments');
 const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
+const closingRoutes = require('./routes/closing');
+const assetRoutes = require('./routes/assets');
+const exportRoutes = require('./routes/export');
+const warehouseRoutes = require('./routes/warehouses');
 
 function createApp() {
   const app = express();
@@ -29,9 +36,19 @@ function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
+  // الدخول وتغيير كلمة المرور: لا يلزمها منشأة، وبعضها قبل المصادقة
   app.use('/api/auth', authRoutes);
 
   app.use('/api', authenticate);
+  app.use('/api', requirePasswordChanged);
+
+  // إدارة النظام: قاعدة النظام لا قاعدة منشأة، فلا تمرّ بـ withBusiness
+  app.use('/api/admin/users', requireAdmin, userRoutes);
+  app.use('/api/admin/businesses', requireAdmin, businessRoutes);
+  app.use('/api/admin/system', requireAdmin, systemRoutes);
+
+  // من هنا كل شيء داخل منشأة واحدة: withBusiness يصل الطلب بقاعدتها وحدها
+  app.use('/api', withBusiness);
   app.use('/api/accounts', accountRoutes);
   app.use('/api/parties', partyRoutes);
   app.use('/api/journal', journalRoutes);
@@ -41,15 +58,26 @@ function createApp() {
   app.use('/api/stock-adjustments', adjustmentRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/closing', closingRoutes);
+  app.use('/api/fixed-assets', assetRoutes);
+  app.use('/api/export', exportRoutes);
+  app.use('/api/warehouses', warehouseRoutes);
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'المسار غير موجود' }));
 
   // الواجهة المبنيّة تُقدَّم من الخادم نفسه، فيكفي منفذ واحد للتطبيق كله
   const dist = process.env.FRONTEND_DIST || path.join(__dirname, '..', '..', 'frontend', 'dist');
   if (fs.existsSync(path.join(dist, 'index.html'))) {
-    app.use(express.static(dist, { index: false, maxAge: '1h' }));
-    // أي مسار غير /api يعود إلى الواجهة لتتولّى التوجيه بنفسها
-    app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+    // ملفات البناء أسماؤها تحمل بصمة محتواها، فتُخزَّن طويلاً بأمان
+    app.use(express.static(dist, { index: false, maxAge: '365d', immutable: true }));
+
+    // أي مسار غير /api يعود إلى الواجهة لتتولّى التوجيه بنفسها.
+    // index.html لا يُخزَّن أبداً: اسمه ثابت وهو الذي يشير إلى ملف البناء
+    // الجديد، فتخزينه يُبقي المستخدم على شيفرة قديمة بعد كل تحديث.
+    app.get('*', (_req, res) => {
+      res.set('Cache-Control', 'no-store, must-revalidate');
+      res.sendFile(path.join(dist, 'index.html'));
+    });
   } else {
     app.get('/', (_req, res) =>
       res

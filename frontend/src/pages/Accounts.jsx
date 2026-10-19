@@ -9,7 +9,8 @@ import { useSession } from '../lib/session';
 const EMPTY = { code: '', name: '', type: 'EXPENSE', parentId: '', isGroup: false };
 
 export default function Accounts() {
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can('accounts.write');
   const [filter, setFilter] = useState('');
   const [form, setForm] = useState(null);
   const [error, setError] = useState(null);

@@ -1,10 +1,13 @@
 'use strict';
 
-const { ensureEnvFile, resolveDatabaseUrl, ensureFrontendBuilt, prepareDatabase } = require('./bootstrap');
+const { ensureEnvFile, resolveDatabaseUrl, ensurePrismaClient, ensureFrontendBuilt, prepareDatabase } = require('./bootstrap');
 
 ensureEnvFile();
 require('dotenv').config({ path: require('node:path').join(__dirname, '..', '.env') });
 resolveDatabaseUrl();
+
+// قبل أي استيراد للعميل: ./app يستورده عبر auth.js
+ensurePrismaClient();
 
 const { createApp } = require('./app');
 

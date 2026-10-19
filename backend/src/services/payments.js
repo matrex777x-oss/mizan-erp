@@ -62,7 +62,7 @@ async function validateAllocations(tx, { kind, partyId, amount, rawAllocations, 
 }
 
 /** يرحّل السند: Dr نقدية / Cr ذمم مدينة — أو العكس للصرف. */
-async function postPayment(tx, payment, userId) {
+async function postPayment(tx, payment, actor) {
   if (payment.status === 'POSTED') throw badRequest('السند مُرحَّل مسبقاً');
   if (payment.status === 'CANCELLED') throw badRequest('السند ملغى');
   if (payment.amount <= 0n) throw badRequest('مبلغ السند يجب أن يكون أكبر من صفر');
@@ -89,7 +89,7 @@ async function postPayment(tx, payment, userId) {
     memo,
     source: 'PAYMENT',
     sourceId: payment.id,
-    userId,
+    actor,
     lines,
   });
 

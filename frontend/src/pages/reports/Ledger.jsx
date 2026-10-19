@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Alert, Card, DataTable, Field, Money, PageHead } from '../../components/ui.jsx';
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
+import ExportButtons from '../../components/ExportButtons.jsx';
 import { formatDate, SOURCE_LABELS } from '../../lib/format';
 
 export default function Ledger() {
@@ -35,6 +36,29 @@ export default function Ledger() {
   return (
     <>
       <PageHead title="كشف حساب" subtitle="حركة تفصيلية برصيد متحرك">
+        <ExportButtons
+          title="كشف حساب"
+          subtitle={data?.account ? `${data.account.code} — ${data.account.name}` : ''}
+          columns={[
+            { label: 'التاريخ' },
+            { label: 'القيد' },
+            { label: 'المصدر' },
+            { label: 'البيان' },
+            { label: 'مدين', numeric: true },
+            { label: 'دائن', numeric: true },
+            { label: 'الرصيد', numeric: true },
+          ]}
+          rows={(data?.rows || []).map((row) => [
+            row.date,
+            `#${row.entryNumber}`,
+            SOURCE_LABELS[row.source] || row.source,
+            row.memo || '',
+            row.debit,
+            row.credit,
+            row.balance,
+          ])}
+          totals={data ? ['', '', '', 'رصيد آخر المدة', '', '', data.closing] : null}
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 

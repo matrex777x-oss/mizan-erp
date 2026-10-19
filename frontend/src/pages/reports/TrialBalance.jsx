@@ -4,6 +4,7 @@ import { Alert, Card, DataTable, Money, PageHead } from '../../components/ui.jsx
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
 import { ACCOUNT_TYPE_LABELS, formatDate } from '../../lib/format';
+import ExportButtons from '../../components/ExportButtons.jsx';
 
 export default function TrialBalance() {
   const [range, setRange] = useState({ from: '', to: '' });
@@ -17,6 +18,29 @@ export default function TrialBalance() {
         title="ميزان المراجعة"
         subtitle={data ? `حتى ${data.to ? formatDate(data.to) : 'آخر حركة'}` : ''}
       >
+        <ExportButtons
+          title="ميزان المراجعة"
+          subtitle={data?.to ? `حتى ${data.to}` : 'حتى آخر حركة'}
+          columns={[
+            { label: 'الرمز' },
+            { label: 'الحساب' },
+            { label: 'النوع' },
+            { label: 'حركة مدينة', numeric: true },
+            { label: 'حركة دائنة', numeric: true },
+            { label: 'رصيد مدين', numeric: true },
+            { label: 'رصيد دائن', numeric: true },
+          ]}
+          rows={(data?.rows || []).map((row) => [
+            row.code,
+            row.name,
+            ACCOUNT_TYPE_LABELS[row.type],
+            row.debit,
+            row.credit,
+            row.balanceDebit,
+            row.balanceCredit,
+          ])}
+          totals={data ? ['', 'الإجمالي', '', data.totals.debit, data.totals.credit, '', ''] : null}
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 
