@@ -13,6 +13,7 @@ const GROUPS = [
   { label: 'الأصناف', prefix: 'items.' },
   { label: 'المخزون', prefix: 'stock.' },
   { label: 'شجرة الحسابات', prefix: 'accounts.' },
+  { label: 'الأصول الثابتة', prefix: 'assets.' },
   { label: 'القيود اليومية', prefix: 'journal.' },
   { label: 'الإقفال السنوي', prefix: 'closing.' },
   { label: 'التقارير', prefix: 'reports.' },

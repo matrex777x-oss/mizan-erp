@@ -28,6 +28,7 @@ const NAV = [
       { to: '/parties', label: 'العملاء والموردون', cap: 'parties.read' },
       { to: '/items', label: 'الأصناف والخدمات', cap: 'items.read' },
       { to: '/accounts', label: 'شجرة الحسابات', cap: 'accounts.read' },
+      { to: '/assets', label: 'الأصول الثابتة', cap: 'assets.read' },
     ],
   },
   {

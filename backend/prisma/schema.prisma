@@ -40,6 +40,9 @@ model Account {
   itemsInventory Item[] @relation("ItemInventoryAccount")
   itemsCogs      Item[] @relation("ItemCogsAccount")
   adjustments    StockAdjustment[] @relation("AdjustmentCounterAccount")
+  assetsCost        FixedAsset[] @relation("AssetCostAccount")
+  assetsAccumulated FixedAsset[] @relation("AssetAccumulatedAccount")
+  assetsExpense     FixedAsset[] @relation("AssetExpenseAccount")
 
   @@index([type])
   @@index([parentId])
@@ -89,6 +92,7 @@ model JournalEntry {
 
   lines JournalLine[]
   fiscalClose FiscalClose?
+  depreciations Depreciation[]
 
   @@index([date])
   @@index([source, sourceId])
@@ -397,4 +401,70 @@ model StockAdjustmentLine {
 
   @@index([adjustmentId])
   @@index([itemId])
+}
+
+// ───────────────────────── الأصول الثابتة ─────────────────────────
+
+// أصل ثابت يُهلَك على عمره الإنتاجي. حساباته مذكورة في البطاقة نفسها لا
+// بمفاتيح نظامية، فتعمل على شجرة حسابات أي منشأة قائمة دون إضافة حسابات.
+model FixedAsset {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  acquiredAt DateTime
+  // التكلفة والقيمة التخريدية بالوحدة الصغرى
+  cost         BigInt
+  salvageValue BigInt @default(0)
+
+  // STRAIGHT_LINE: قسط ثابت — DECLINING_BALANCE: قسط متناقص على الرصيد الدفتري
+  method           String @default("STRAIGHT_LINE")
+  usefulLifeMonths Int    @default(60)
+  // نسبة القسط المتناقص السنوية بالعُشر من المئة (20% => 2000)
+  decliningRate    Int    @default(0)
+
+  assetAccountId       String
+  assetAccount         Account @relation("AssetCostAccount", fields: [assetAccountId], references: [id])
+  accumulatedAccountId String
+  accumulatedAccount   Account @relation("AssetAccumulatedAccount", fields: [accumulatedAccountId], references: [id])
+  expenseAccountId     String
+  expenseAccount       Account @relation("AssetExpenseAccount", fields: [expenseAccountId], references: [id])
+
+  // ACTIVE | DISPOSED
+  status           String    @default("ACTIVE")
+  disposedAt       DateTime?
+  disposalProceeds BigInt    @default(0)
+
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  depreciations Depreciation[]
+
+  @@index([status])
+  @@index([acquiredAt])
+}
+
+// دفعة إهلاك لأصل في فترة. القيد يحمل كل أصول الدفعة، والصف هنا يربط الأصل بها.
+model Depreciation {
+  id      String     @id @default(cuid())
+  assetId String
+  asset   FixedAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  // آخر يوم في الفترة المُهلَكة
+  periodEnd DateTime
+  months    Int    @default(1)
+  amount    BigInt
+  // الرصيد الدفتري بعد هذه الدفعة — يُقرأ منه الرصيد دون إعادة حساب التاريخ كله
+  bookValueAfter BigInt
+
+  entryId String
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([assetId, periodEnd])
+  @@index([periodEnd])
+  @@index([entryId])
 }
