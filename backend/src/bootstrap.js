@@ -69,6 +69,25 @@ function ensureFrontendBuilt() {
   }
 }
 
+/**
+ * شبكة أمان: عميل Prisma مولَّد لا مثبَّت. بعض المشغّلات تكتفي بـ `npm install`
+ * ثم `npm start`، كما أن npm الحديث يحجب سكربتات التثبيت افتراضياً فلا يولّده
+ * الحزمة نفسها. إن لم يكن مولَّداً نولّده مرة واحدة قبل أول استيراد له.
+ */
+function ensurePrismaClient() {
+  // الدليل القاطع هو نسخة المخطط التي يضعها المولّد داخل العميل، فملفات
+  // default.js موجودة أصلاً في الحزمة وترمي خطأً حين لا يكون مولَّداً.
+  const generated = path.join(ROOT, 'node_modules', '.prisma', 'client', 'schema.prisma');
+  if (fs.existsSync(generated)) return;
+
+  console.log('… توليد عميل قاعدة البيانات (مرة واحدة)');
+  execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'generate'], {
+    cwd: ROOT,
+    env: process.env,
+    stdio: 'inherit',
+  });
+}
+
 /** ينشئ الجداول إن لم تكن موجودة. */
 function pushSchema() {
   execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'db', 'push', '--skip-generate', '--accept-data-loss'], {
@@ -104,4 +123,4 @@ async function prepareDatabase() {
   return credentials;
 }
 
-module.exports = { ensureEnvFile, resolveDatabaseUrl, ensureFrontendBuilt, prepareDatabase, ROOT };
+module.exports = { ensureEnvFile, resolveDatabaseUrl, ensurePrismaClient, ensureFrontendBuilt, prepareDatabase, ROOT };

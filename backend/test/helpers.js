@@ -22,8 +22,9 @@ function resetDatabase() {
     fs.rmSync(path.join(ROOT, 'prisma', `test-${suite}.db${suffix}`), { force: true });
   }
   const options = { cwd: ROOT, env: process.env, stdio: 'pipe' };
-  execFileSync('npx', ['prisma', 'db', 'push', '--skip-generate', '--accept-data-loss'], options);
-  execFileSync('node', ['prisma/seed.js'], options);
+  // نستدعي prisma و node بمسارهما لا عبر npx: execFileSync لا يحلّ ملفات .cmd على ويندوز
+  execFileSync(process.execPath, [require.resolve('prisma/build/index.js'), 'db', 'push', '--skip-generate', '--accept-data-loss'], options);
+  execFileSync(process.execPath, ['prisma/seed.js'], options);
 }
 
 /** يشغّل الخادم على منفذ عشوائي ويعيد أدوات مناداة الواجهة. */
