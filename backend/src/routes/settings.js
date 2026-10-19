@@ -88,6 +88,7 @@ router.patch('/', requireCapability('settings.write'), async (req, res, next) =>
       ['prefixReceipt', 'بادئة سندات القبض'],
       ['prefixPayment', 'بادئة سندات الصرف'],
       ['prefixAdjustment', 'بادئة تسويات المخزون'],
+      ['prefixTransfer', 'بادئة التحويلات'],
     ];
     for (const [field, label] of prefixFields) {
       if (req.body?.[field] !== undefined) data[field] = requirePrefix(req.body[field], label);

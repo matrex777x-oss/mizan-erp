@@ -219,6 +219,7 @@ function settings(row) {
     prefixReceipt: row.prefixReceipt,
     prefixPayment: row.prefixPayment,
     prefixAdjustment: row.prefixAdjustment,
+    prefixTransfer: row.prefixTransfer,
     numberIncludeYear: row.numberIncludeYear,
     numberPadding: row.numberPadding,
 

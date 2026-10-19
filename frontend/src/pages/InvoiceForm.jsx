@@ -15,7 +15,7 @@ const LABELS = {
 };
 
 // السطر يختار إمّا صنفاً («item:<id>») أو حساباً حرّاً («account:<id>»)
-const emptyLine = (taxRate) => ({ pick: '', description: '', quantity: '1', unitPrice: '', taxRate: taxRate || '0' });
+const emptyLine = (taxRate) => ({ pick: '', description: '', quantity: '1', unitPrice: '', taxRate: taxRate || '0', warehouseId: '' });
 
 const parsePick = (pick) => {
   const [type, id] = String(pick || '').split(':');
@@ -35,6 +35,12 @@ export default function InvoiceForm() {
 
   const [header, setHeader] = useState({ date: today(), dueDate: '', partyId: '', notes: '' });
   const [lines, setLines] = useState([emptyLine(settings?.defaultTaxRate)]);
+  const warehouses = useAsync(
+    () => (settings?.inventoryEnabled === false ? Promise.resolve({ warehouses: [] }) : api.get('/warehouses')),
+    [settings?.inventoryEnabled],
+  );
+  const activeWarehouses = (warehouses.data?.warehouses || []).filter((w) => w.active);
+  const multiWarehouse = activeWarehouses.length > 1;
   const [status, setStatus] = useState('DRAFT');
   const [number, setNumber] = useState('');
   const [error, setError] = useState(null);
@@ -57,6 +63,7 @@ export default function InvoiceForm() {
     setLines(
       invoice.lines.map((line) => ({
         pick: line.itemId ? `item:${line.itemId}` : `account:${line.accountId}`,
+        warehouseId: line.warehouseId || '',
         description: line.description,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
@@ -117,6 +124,7 @@ export default function InvoiceForm() {
             quantity: line.quantity || '0',
             unitPrice: line.unitPrice || '0',
             taxRate: line.taxRate || '0',
+            ...(type === 'item' && line.warehouseId ? { warehouseId: line.warehouseId } : {}),
           };
         }),
         ...(post ? { post: true } : {}),
@@ -221,6 +229,7 @@ export default function InvoiceForm() {
                 <tr>
                   <th style={{ minWidth: 200 }}>الوصف</th>
                   <th style={{ width: 230 }}>الصنف أو الحساب</th>
+                  {multiWarehouse && <th style={{ width: 150 }}>المستودع</th>}
                   <th className="num" style={{ width: 100 }}>الكمية</th>
                   <th className="num" style={{ width: 120 }}>سعر الوحدة</th>
                   <th className="num" style={{ width: 90 }}>الضريبة %</th>
@@ -267,6 +276,24 @@ export default function InvoiceForm() {
                         );
                       })()}
                     </td>
+                    {multiWarehouse && (
+                      <td>
+                        {parsePick(line.pick).type === 'item' ? (
+                          <select
+                            value={line.warehouseId}
+                            onChange={(e) => updateLine(index, { warehouseId: e.target.value })}
+                            disabled={readOnly}
+                          >
+                            <option value="">الافتراضي</option>
+                            {activeWarehouses.map((warehouse) => (
+                              <option key={warehouse.id} value={warehouse.id}>{warehouse.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="small muted">—</span>
+                        )}
+                      </td>
+                    )}
                     <td><input className="num" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} disabled={readOnly} dir="ltr" /></td>
                     <td><input className="num" value={line.unitPrice} onChange={(e) => updateLine(index, { unitPrice: e.target.value })} disabled={readOnly} dir="ltr" /></td>
                     <td><input className="num" value={line.taxRate} onChange={(e) => updateLine(index, { taxRate: e.target.value })} disabled={readOnly} dir="ltr" /></td>
@@ -287,15 +314,15 @@ export default function InvoiceForm() {
               </tbody>
               <tfoot>
                 <tr className="total">
-                  <td colSpan={readOnly ? 4 : 5}>المجموع قبل الضريبة</td>
+                  <td colSpan={(readOnly ? 4 : 5) + (multiWarehouse ? 1 : 0)}>المجموع قبل الضريبة</td>
                   <td className="num" colSpan={readOnly ? 2 : 2}><Money value={totals.subtotal} /></td>
                 </tr>
                 <tr className="total">
-                  <td colSpan={readOnly ? 4 : 5}>الضريبة</td>
+                  <td colSpan={(readOnly ? 4 : 5) + (multiWarehouse ? 1 : 0)}>الضريبة</td>
                   <td className="num" colSpan={2}><Money value={totals.taxTotal} /></td>
                 </tr>
                 <tr className="total">
-                  <td colSpan={readOnly ? 4 : 5}>الإجمالي المستحق</td>
+                  <td colSpan={(readOnly ? 4 : 5) + (multiWarehouse ? 1 : 0)}>الإجمالي المستحق</td>
                   <td className="num" colSpan={2}><Money value={totals.total} /></td>
                 </tr>
               </tfoot>

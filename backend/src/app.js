@@ -25,6 +25,7 @@ const settingsRoutes = require('./routes/settings');
 const closingRoutes = require('./routes/closing');
 const assetRoutes = require('./routes/assets');
 const exportRoutes = require('./routes/export');
+const warehouseRoutes = require('./routes/warehouses');
 
 function createApp() {
   const app = express();
@@ -60,6 +61,7 @@ function createApp() {
   app.use('/api/closing', closingRoutes);
   app.use('/api/fixed-assets', assetRoutes);
   app.use('/api/export', exportRoutes);
+  app.use('/api/warehouses', warehouseRoutes);
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'المسار غير موجود' }));
 

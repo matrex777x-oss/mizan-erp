@@ -108,14 +108,28 @@ async function ensureFirstBusiness() {
   return business;
 }
 
-/** يوائم قواعد المنشآت القائمة مع المخطط الحالي بعد تحديث الكود. */
+/**
+ * يوائم قواعد المنشآت القائمة مع المخطط الحالي بعد تحديث الكود، ثم يشغّل
+ * ترحيلات البيانات: مواءمة الجداول لا تملأ صفوفاً، وبعض التغييرات تحتاج ذلك.
+ */
 async function syncBusinessSchemas() {
-  const businesses = await systemDb.business.findMany({ select: { slug: true } });
+  const { runDataMigrations } = require('./dataMigrations');
+  const { runWithDb } = require('./dbContext');
+
+  const businesses = await systemDb.business.findMany({ select: { slug: true, name: true } });
   const updated = [];
-  for (const { slug } of businesses) {
+
+  for (const { slug, name } of businesses) {
     if (!businessDb.businessDbExists(slug)) continue;
     if (businessDb.syncSchema(slug)) updated.push(slug);
+
+    const db = businessDb.getBusinessDb(slug);
+    const applied = await runWithDb(db, () => runDataMigrations(db));
+    for (const migration of applied) {
+      console.log(`✓ ترحيل بيانات «${name}»: ${migration}`);
+    }
   }
+
   return updated;
 }
 

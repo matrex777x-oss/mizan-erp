@@ -96,6 +96,8 @@ async function createBusinessDb(slug, { companyName } = {}) {
   const { seedChart } = require('../../prisma/seed');
   const db = getBusinessDb(slug);
 
+  const { runDataMigrations } = require('./dataMigrations');
+
   await runWithDb(db, async () => {
     await db.settings.upsert({
       where: { id: 1 },
@@ -103,6 +105,9 @@ async function createBusinessDb(slug, { companyName } = {}) {
       create: companyName ? { id: 1, companyName } : { id: 1 },
     });
     await seedChart();
+
+    // المنشأة الجديدة تبدأ بما تبدأ به المنشأة المُرحَّلة: مستودع افتراضي وغيره
+    await runDataMigrations(db);
   });
 
   return dbPath;

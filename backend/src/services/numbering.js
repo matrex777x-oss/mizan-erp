@@ -7,6 +7,7 @@ const PREFIXES = {
   RECEIPT: 'RCT',
   PAYMENT: 'PMT',
   ADJUSTMENT: 'ADJ',
+  TRANSFER: 'TRF',
 };
 
 /** حقل الإعدادات الذي يحمل بادئة كل نوع. */
@@ -16,6 +17,7 @@ const PREFIX_FIELD = {
   RECEIPT: 'prefixReceipt',
   PAYMENT: 'prefixPayment',
   ADJUSTMENT: 'prefixAdjustment',
+  TRANSFER: 'prefixTransfer',
 };
 
 /**
@@ -33,6 +35,7 @@ async function numberingSettings(tx) {
       RECEIPT: row?.prefixReceipt || PREFIXES.RECEIPT,
       PAYMENT: row?.prefixPayment || PREFIXES.PAYMENT,
       ADJUSTMENT: row?.prefixAdjustment || PREFIXES.ADJUSTMENT,
+      TRANSFER: row?.prefixTransfer || PREFIXES.TRANSFER,
     },
   };
 }
@@ -83,4 +86,27 @@ async function nextAdjustmentNumber(tx, date) {
   return `${stem}${String(next).padStart(settings.padding, '0')}`;
 }
 
-module.exports = { nextDocumentNumber, nextAdjustmentNumber, numberingSettings, PREFIXES, PREFIX_FIELD };
+/** التحويلات بين المستودعات: جدولها بلا حقل نوع، فترقيمها على حدة. */
+async function nextTransferNumber(tx, date) {
+  const settings = await numberingSettings(tx);
+  const stem = stemFor(settings.prefixes.TRANSFER, date, settings.includeYear);
+
+  const last = await tx.stockTransfer.findFirst({
+    where: { number: { startsWith: stem } },
+    orderBy: { number: 'desc' },
+    select: { number: true },
+  });
+
+  const lastSeq = last ? Number.parseInt(last.number.slice(stem.length), 10) : 0;
+  const next = (Number.isFinite(lastSeq) ? lastSeq : 0) + 1;
+  return `${stem}${String(next).padStart(settings.padding, '0')}`;
+}
+
+module.exports = {
+  nextDocumentNumber,
+  nextAdjustmentNumber,
+  nextTransferNumber,
+  numberingSettings,
+  PREFIXES,
+  PREFIX_FIELD,
+};

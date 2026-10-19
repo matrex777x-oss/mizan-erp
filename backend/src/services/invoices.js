@@ -5,7 +5,7 @@ const { toMinor, toQuantity, toRate, lineAmount, taxAmount } = require('../lib/m
 const { requireString, optionalString } = require('../lib/validate');
 const { SYSTEM_ACCOUNTS } = require('../lib/constants');
 const { createEntry, deleteEntriesFor } = require('./ledger');
-const { recordIn, recordOut, removeMovesFor } = require('./stock');
+const { recordIn, recordOut, removeMovesFor, resolveWarehouse, defaultWarehouse } = require('./stock');
 
 /** الأنواع المسموح بها لحسابات سطور الفاتورة الحرّة (بلا صنف). */
 const LINE_ACCOUNT_TYPES = {
@@ -88,6 +88,14 @@ async function computeLines(tx, kind, rawLines) {
     subtotal += lineSubtotal;
     taxTotal += lineTax;
 
+    // المستودع للأصناف المخزنية وحدها؛ بلا تحديد يُستعمل الافتراضي عند الترحيل
+    let warehouseId = null;
+    if (raw.itemId && itemsById.get(raw.itemId)?.kind === 'STOCK') {
+      warehouseId = raw.warehouseId
+        ? (await resolveWarehouse(tx, String(raw.warehouseId))).id
+        : (await defaultWarehouse(tx)).id;
+    }
+
     lines.push({
       itemId: raw.itemId || null,
       description,
@@ -95,6 +103,7 @@ async function computeLines(tx, kind, rawLines) {
       unitPrice,
       taxRate,
       accountId,
+      warehouseId,
       lineSubtotal,
       lineTax,
       lineTotal: lineSubtotal + lineTax,
@@ -119,6 +128,7 @@ async function applyStock(tx, invoice) {
     for (const line of stockLines) {
       await recordIn(tx, {
         itemId: line.itemId,
+        warehouseId: line.warehouseId,
         date: invoice.date,
         quantity: line.quantity,
         totalCost: line.lineSubtotal,
@@ -138,6 +148,7 @@ async function applyStock(tx, invoice) {
   for (const line of stockLines) {
     const move = await recordOut(tx, {
       itemId: line.itemId,
+      warehouseId: line.warehouseId,
       date: invoice.date,
       quantity: line.quantity,
       sourceType: 'INVOICE',

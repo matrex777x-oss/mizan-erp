@@ -18,6 +18,7 @@ const NAV = [
       { to: '/payments/receipts', label: 'سندات القبض', cap: 'receipt.read' },
       { to: '/payments/outgoing', label: 'سندات الصرف', cap: 'expense.read' },
       { to: '/stock-adjustments', label: 'تسويات المخزون', cap: 'stock.read', module: 'inventory' },
+      { to: '/warehouses', label: 'المستودعات', cap: 'stock.read', module: 'inventory' },
       { to: '/journal', label: 'القيود اليومية', cap: 'journal.read' },
       { to: '/closing', label: 'الإقفال السنوي', cap: 'closing.read' },
     ],
