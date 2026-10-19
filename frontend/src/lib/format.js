@@ -53,5 +53,21 @@ export const SOURCE_LABELS = {
   MANUAL: 'يدوي',
   INVOICE: 'فاتورة',
   PAYMENT: 'سند',
+  ADJUSTMENT: 'تسوية مخزون',
   OPENING: 'افتتاحي',
+};
+
+export const ITEM_KIND_LABELS = {
+  STOCK: 'صنف مخزني',
+  SERVICE: 'خدمة',
+};
+
+export const MOVE_KIND_LABELS = {
+  IN: 'وارد',
+  OUT: 'منصرف',
+};
+
+export const MOVE_SOURCE_LABELS = {
+  INVOICE: 'فاتورة',
+  ADJUSTMENT: 'تسوية',
 };

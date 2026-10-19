@@ -33,6 +33,7 @@ export default function Dashboard() {
         <Stat label="النقدية والبنوك" value={data.cash} />
         <Stat label="ذمم العملاء (لنا)" value={data.receivable} />
         <Stat label="ذمم الموردين (علينا)" value={data.payable} />
+        <Stat label="قيمة المخزون" value={data.stockValue} />
         <Stat label="ربح الشهر الجاري" value={data.monthProfit} signed />
       </div>
 

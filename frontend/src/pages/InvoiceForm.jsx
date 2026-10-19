@@ -14,7 +14,13 @@ const LABELS = {
   PURCHASE: { new: 'فاتورة مشتريات جديدة', party: 'المورد', partyKind: 'SUPPLIER', account: 'حساب المصروف' },
 };
 
-const emptyLine = (taxRate) => ({ description: '', quantity: '1', unitPrice: '', taxRate: taxRate || '0', accountId: '' });
+// السطر يختار إمّا صنفاً («item:<id>») أو حساباً حرّاً («account:<id>»)
+const emptyLine = (taxRate) => ({ pick: '', description: '', quantity: '1', unitPrice: '', taxRate: taxRate || '0' });
+
+const parsePick = (pick) => {
+  const [type, id] = String(pick || '').split(':');
+  return id ? { type, id } : { type: null, id: null };
+};
 
 export default function InvoiceForm() {
   const { kind: slug, id } = useParams();
@@ -32,6 +38,7 @@ export default function InvoiceForm() {
 
   const parties = useAsync(() => api.get(`/parties${query({ kind: labels.partyKind, active: 'true' })}`), [kind]);
   const accounts = useAsync(() => api.get('/accounts?postable=true&active=true'), []);
+  const items = useAsync(() => api.get('/items?active=true'), []);
   const existing = useAsync(() => (id ? api.get(`/invoices/${id}`) : Promise.resolve(null)), [id]);
 
   useEffect(() => {
@@ -45,11 +52,11 @@ export default function InvoiceForm() {
     });
     setLines(
       invoice.lines.map((line) => ({
+        pick: line.itemId ? `item:${line.itemId}` : `account:${line.accountId}`,
         description: line.description,
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         taxRate: line.taxRate,
-        accountId: line.accountId,
       })),
     );
     setStatus(invoice.status);
@@ -58,12 +65,34 @@ export default function InvoiceForm() {
 
   const allowedTypes = kind === 'SALES' ? ['INCOME'] : ['EXPENSE', 'ASSET'];
   const lineAccounts = (accounts.data?.accounts || []).filter((a) => allowedTypes.includes(a.type));
+  // الخدمات بلا حساب مصروف لا تصلح للشراء
+  const lineItems = (items.data?.items || []).filter(
+    (item) => kind === 'SALES' || item.kind === 'STOCK' || item.expenseAccountId,
+  );
+  const itemsById = useMemo(() => new Map(lineItems.map((item) => [item.id, item])), [items.data, kind]);
   const totals = useMemo(() => computeInvoice(lines), [lines]);
 
   const readOnly = !canWrite || status !== 'DRAFT';
 
   function updateLine(index, patch) {
     setLines((current) => current.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  /** اختيار صنف يملأ الوصف والسعر والضريبة من بطاقته. */
+  function pickLine(index, pick) {
+    const { type, id } = parsePick(pick);
+    const line = lines[index];
+    if (type !== 'item') {
+      updateLine(index, { pick });
+      return;
+    }
+    const item = itemsById.get(id);
+    updateLine(index, {
+      pick,
+      description: line.description || item?.name || '',
+      unitPrice: line.unitPrice || (kind === 'SALES' ? item?.salePrice : item?.purchasePrice) || '',
+      taxRate: item?.taxRate ?? line.taxRate,
+    });
   }
 
   async function submit(post) {
@@ -76,13 +105,16 @@ export default function InvoiceForm() {
         dueDate: header.dueDate || null,
         partyId: header.partyId,
         notes: header.notes || null,
-        lines: lines.map((line) => ({
-          description: line.description,
-          quantity: line.quantity || '0',
-          unitPrice: line.unitPrice || '0',
-          taxRate: line.taxRate || '0',
-          accountId: line.accountId,
-        })),
+        lines: lines.map((line) => {
+          const { type, id } = parsePick(line.pick);
+          return {
+            ...(type === 'item' ? { itemId: id } : { accountId: id }),
+            description: line.description,
+            quantity: line.quantity || '0',
+            unitPrice: line.unitPrice || '0',
+            taxRate: line.taxRate || '0',
+          };
+        }),
         ...(post ? { post: true } : {}),
       };
 
@@ -184,7 +216,7 @@ export default function InvoiceForm() {
               <thead>
                 <tr>
                   <th style={{ minWidth: 200 }}>الوصف</th>
-                  <th style={{ width: 200 }}>{labels.account}</th>
+                  <th style={{ width: 230 }}>الصنف أو الحساب</th>
                   <th className="num" style={{ width: 100 }}>الكمية</th>
                   <th className="num" style={{ width: 120 }}>سعر الوحدة</th>
                   <th className="num" style={{ width: 90 }}>الضريبة %</th>
@@ -204,12 +236,32 @@ export default function InvoiceForm() {
                       />
                     </td>
                     <td>
-                      <select value={line.accountId} onChange={(e) => updateLine(index, { accountId: e.target.value })} disabled={readOnly}>
+                      <select value={line.pick} onChange={(e) => pickLine(index, e.target.value)} disabled={readOnly}>
                         <option value="">— اختر —</option>
-                        {lineAccounts.map((account) => (
-                          <option key={account.id} value={account.id}>{account.code} — {account.name}</option>
-                        ))}
+                        <optgroup label="الأصناف والخدمات">
+                          {lineItems.map((item) => (
+                            <option key={item.id} value={`item:${item.id}`}>
+                              {item.code} — {item.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                        <optgroup label={labels.account}>
+                          {lineAccounts.map((account) => (
+                            <option key={account.id} value={`account:${account.id}`}>
+                              {account.code} — {account.name}
+                            </option>
+                          ))}
+                        </optgroup>
                       </select>
+                      {(() => {
+                        const item = itemsById.get(parsePick(line.pick).id);
+                        if (!item || item.kind !== 'STOCK') return null;
+                        return (
+                          <span className="small muted">
+                            الرصيد {item.onHand} {item.unit} · متوسط التكلفة {item.averageCost}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td><input className="num" value={line.quantity} onChange={(e) => updateLine(index, { quantity: e.target.value })} disabled={readOnly} dir="ltr" /></td>
                     <td><input className="num" value={line.unitPrice} onChange={(e) => updateLine(index, { unitPrice: e.target.value })} disabled={readOnly} dir="ltr" /></td>
@@ -263,10 +315,10 @@ export default function InvoiceForm() {
 
         {!readOnly && (
           <div className="toolbar no-print">
-            <button className="primary" onClick={() => submit(false)} disabled={busy || totals.isEmpty || !header.partyId}>
+            <button className="primary" onClick={() => submit(false)} disabled={busy || totals.isEmpty || !header.partyId || !lines.every((line) => line.pick)}>
               {id ? 'حفظ التعديلات' : 'حفظ كمسودة'}
             </button>
-            <button onClick={() => submit(true)} disabled={busy || totals.isEmpty || !header.partyId}>
+            <button onClick={() => submit(true)} disabled={busy || totals.isEmpty || !header.partyId || !lines.every((line) => line.pick)}>
               حفظ وترحيل
             </button>
             {id && <button className="danger" onClick={() => act('delete', 'حذف المسودة نهائياً؟')} disabled={busy}>حذف</button>}

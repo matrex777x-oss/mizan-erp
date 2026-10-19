@@ -44,6 +44,11 @@ model Account {
   lines        JournalLine[]
   invoiceLines InvoiceLine[] @relation("InvoiceLineAccount")
   payments     Payment[]     @relation("PaymentCashAccount")
+  itemsSales     Item[] @relation("ItemSalesAccount")
+  itemsExpense   Item[] @relation("ItemExpenseAccount")
+  itemsInventory Item[] @relation("ItemInventoryAccount")
+  itemsCogs      Item[] @relation("ItemCogsAccount")
+  adjustments    StockAdjustment[] @relation("AdjustmentCounterAccount")
 
   @@index([type])
   @@index([parentId])
@@ -81,7 +86,7 @@ model JournalEntry {
   number   Int         @unique
   date     DateTime
   memo     String?
-  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | OPENING
+  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | ADJUSTMENT | OPENING
   // معرّف المستند الذي ولّد القيد (فاتورة أو سند) — لحذفه معه
   sourceId String?
 
@@ -156,6 +161,10 @@ model InvoiceLine {
   invoiceId String
   invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
+  // الصنف اختياري: السطر الحر بوصف وحساب يدوي ما زال مدعوماً
+  itemId String?
+  item   Item?   @relation(fields: [itemId], references: [id])
+
   description String
   // الكمية بثلاث منازل عشرية مخزَّنة كعدد صحيح (1.5 => 1500)
   quantity    BigInt @default(1000)
@@ -175,6 +184,7 @@ model InvoiceLine {
   sortOrder Int @default(0)
 
   @@index([invoiceId])
+  @@index([itemId])
 }
 
 // ───────────────────────── سندات القبض والصرف ─────────────────────────
@@ -235,4 +245,120 @@ model Settings {
   // لا يُسمح بقيود قبل هذا التاريخ (إقفال فترة)
   lockDate        DateTime?
   updatedAt       DateTime @updatedAt
+}
+
+// ───────────────────────── الأصناف والمخزون ─────────────────────────
+
+model Item {
+  id   String @id @default(cuid())
+  code String @unique
+  name String
+  // STOCK: صنف مخزني يُتابَع كمياً وتُحسب تكلفته — SERVICE: خدمة بلا مخزون
+  kind String @default("STOCK")
+  unit String @default("حبة")
+
+  // أسعار استرشادية تُقترح عند إدخال الفاتورة
+  salePrice     BigInt @default(0)
+  purchasePrice BigInt @default(0)
+  // نسبة الضريبة الافتراضية بالعُشر من المئة
+  taxRate Int @default(0)
+
+  salesAccountId String
+  salesAccount   Account @relation("ItemSalesAccount", fields: [salesAccountId], references: [id])
+
+  // حساب المصروف لفواتير شراء الخدمات
+  expenseAccountId String?
+  expenseAccount   Account? @relation("ItemExpenseAccount", fields: [expenseAccountId], references: [id])
+
+  // حسابا المخزون وتكلفة المبيعات — يرجعان للحسابين النظاميين عند تركهما فارغين
+  inventoryAccountId String?
+  inventoryAccount   Account? @relation("ItemInventoryAccount", fields: [inventoryAccountId], references: [id])
+  cogsAccountId      String?
+  cogsAccount        Account? @relation("ItemCogsAccount", fields: [cogsAccountId], references: [id])
+
+  // الرصيد الجاري: مشتق من حركة المخزون ويُحدَّث معها في المعاملة نفسها
+  onHand     BigInt @default(0) // الكمية ×1000
+  stockValue BigInt @default(0) // قيمة المخزون بالوحدة الصغرى
+
+  reorderLevel BigInt  @default(0)
+  notes        String?
+  active       Boolean @default(true)
+  createdAt    DateTime @default(now())
+
+  moves        StockMove[]
+  invoiceLines InvoiceLine[]
+  adjustmentLines StockAdjustmentLine[]
+
+  @@index([kind])
+  @@index([name])
+}
+
+// حركة مخزون واحدة بالتكلفة المتوسطة المرجّحة؛ الرصيد بعدها محفوظ في السطر نفسه
+model StockMove {
+  id     String @id @default(cuid())
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  date DateTime
+  // IN: وارد — OUT: منصرف
+  kind String
+
+  quantity  BigInt // موجبة دائماً؛ الاتجاه من kind
+  unitCost  BigInt // تكلفة الوحدة المطبَّقة على هذه الحركة
+  totalCost BigInt
+
+  // رصيد الصنف بعد هذه الحركة
+  balanceQty   BigInt
+  balanceValue BigInt
+
+  // INVOICE | ADJUSTMENT
+  sourceType String
+  sourceId   String?
+  memo       String?
+  createdAt  DateTime @default(now())
+
+  @@index([itemId, date])
+  @@index([sourceType, sourceId])
+}
+
+// تسوية مخزون: أرصدة افتتاحية، فروق جرد، تالف
+model StockAdjustment {
+  id     String   @id @default(cuid())
+  number String   @unique
+  date   DateTime
+  reason String?
+  status String   @default("DRAFT") // DRAFT | POSTED | CANCELLED
+  notes  String?
+
+  // الطرف المقابل: رأس المال للأرصدة الافتتاحية، أو حساب فروق الجرد
+  counterAccountId String
+  counterAccount   Account @relation("AdjustmentCounterAccount", fields: [counterAccountId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines StockAdjustmentLine[]
+
+  @@index([date])
+  @@index([status])
+}
+
+model StockAdjustmentLine {
+  id           String          @id @default(cuid())
+  adjustmentId String
+  adjustment   StockAdjustment @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+
+  itemId String
+  item   Item   @relation(fields: [itemId], references: [id])
+
+  // IN: إدخال للمخزون — OUT: إخراج منه
+  direction String
+  quantity  BigInt
+  // تُستخدم للإدخال فقط؛ الإخراج يأخذ المتوسط المرجّح الجاري
+  unitCost  BigInt @default(0)
+  memo      String?
+  sortOrder Int    @default(0)
+
+  @@index([adjustmentId])
+  @@index([itemId])
 }

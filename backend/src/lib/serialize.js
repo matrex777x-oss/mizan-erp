@@ -1,6 +1,6 @@
 'use strict';
 
-const { fromMinor, fromQuantity, fromRate } = require('./money');
+const { fromMinor, fromQuantity, fromRate, divRound, QTY_SCALE } = require('./money');
 
 const money = (value) => fromMinor(value ?? 0n);
 const day = (value) => (value ? new Date(value).toISOString().slice(0, 10) : null);
@@ -64,9 +64,81 @@ function journalEntry(row) {
   };
 }
 
+function item(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    kind: row.kind,
+    unit: row.unit,
+    salePrice: money(row.salePrice),
+    purchasePrice: money(row.purchasePrice),
+    taxRate: fromRate(row.taxRate),
+    salesAccountId: row.salesAccountId,
+    expenseAccountId: row.expenseAccountId,
+    inventoryAccountId: row.inventoryAccountId,
+    cogsAccountId: row.cogsAccountId,
+    onHand: fromQuantity(row.onHand),
+    stockValue: money(row.stockValue),
+    averageCost: money(row.onHand ? divRound(row.stockValue * QTY_SCALE, row.onHand) : 0n),
+    reorderLevel: fromQuantity(row.reorderLevel),
+    notes: row.notes,
+    active: row.active,
+  };
+}
+
+function stockMove(row) {
+  return {
+    id: row.id,
+    itemId: row.itemId,
+    item: row.item ? item(row.item) : undefined,
+    date: day(row.date),
+    kind: row.kind,
+    quantity: fromQuantity(row.quantity),
+    unitCost: money(row.unitCost),
+    totalCost: money(row.totalCost),
+    balanceQty: fromQuantity(row.balanceQty),
+    balanceValue: money(row.balanceValue),
+    sourceType: row.sourceType,
+    sourceId: row.sourceId,
+    memo: row.memo,
+  };
+}
+
+function adjustmentLine(row) {
+  return {
+    id: row.id,
+    itemId: row.itemId,
+    item: row.item ? item(row.item) : undefined,
+    direction: row.direction,
+    quantity: fromQuantity(row.quantity),
+    unitCost: money(row.unitCost),
+    memo: row.memo,
+    sortOrder: row.sortOrder,
+  };
+}
+
+function adjustment(row, extra = {}) {
+  return {
+    id: row.id,
+    number: row.number,
+    date: day(row.date),
+    reason: row.reason,
+    status: row.status,
+    notes: row.notes,
+    counterAccountId: row.counterAccountId,
+    counterAccount: row.counterAccount ? account(row.counterAccount) : undefined,
+    lines: row.lines ? row.lines.map(adjustmentLine) : undefined,
+    ...extra,
+  };
+}
+
 function invoiceLine(row) {
   return {
     id: row.id,
+    itemId: row.itemId,
+    item: row.item ? item(row.item) : undefined,
     description: row.description,
     quantity: fromQuantity(row.quantity),
     unitPrice: money(row.unitPrice),
@@ -142,6 +214,10 @@ module.exports = {
   money,
   day,
   account,
+  item,
+  stockMove,
+  adjustment,
+  adjustmentLine,
   party,
   journalLine,
   journalEntry,
