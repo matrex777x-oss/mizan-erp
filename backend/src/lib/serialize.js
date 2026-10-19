@@ -202,12 +202,27 @@ function payment(row, extra = {}) {
 function settings(row) {
   return {
     companyName: row.companyName,
+    taxNumber: row.taxNumber,
+    address: row.address,
+    phone: row.phone,
+    email: row.email,
+
     currencyCode: row.currencyCode,
     currencySymbol: row.currencySymbol,
     decimalPlaces: row.decimalPlaces,
     fiscalYearStart: row.fiscalYearStart,
     defaultTaxRate: fromRate(row.defaultTaxRate),
     lockDate: day(row.lockDate),
+
+    prefixSales: row.prefixSales,
+    prefixPurchase: row.prefixPurchase,
+    prefixReceipt: row.prefixReceipt,
+    prefixPayment: row.prefixPayment,
+    prefixAdjustment: row.prefixAdjustment,
+    numberIncludeYear: row.numberIncludeYear,
+    numberPadding: row.numberPadding,
+
+    inventoryEnabled: row.inventoryEnabled,
   };
 }
 

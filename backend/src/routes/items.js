@@ -4,6 +4,7 @@ const express = require('express');
 
 const prisma = require('../lib/prisma');
 const { requireCapability } = require('../lib/auth');
+const { assertInventoryEnabled } = require('../lib/modules');
 const { badRequest, notFound } = require('../lib/errors');
 const { requireString, optionalString, requireEnum } = require('../lib/validate');
 const { ITEM_KINDS, SYSTEM_ACCOUNTS } = require('../lib/constants');
@@ -102,6 +103,8 @@ async function readPayload(body, { partial = false } = {}) {
 router.post('/', requireCapability('items.write'), async (req, res, next) => {
   try {
     const data = await readPayload(req.body);
+    if (data.kind === 'STOCK') await assertInventoryEnabled();
+
     if (data.kind === 'SERVICE' && !data.expenseAccountId) {
       // الخدمة بلا حساب مصروف لا يمكن شراؤها، لكن بيعها جائز — ننبّه فقط عند الشراء
       data.expenseAccountId = null;
@@ -121,6 +124,7 @@ router.patch('/:id', requireCapability('items.write'), async (req, res, next) =>
     if (!current) throw notFound('الصنف غير موجود');
 
     const data = await readPayload(req.body, { partial: true });
+    if (data.kind === 'STOCK' && current.kind !== 'STOCK') await assertInventoryEnabled();
 
     if (data.kind && data.kind !== current.kind) {
       const moves = await prisma.stockMove.count({ where: { itemId: current.id } });

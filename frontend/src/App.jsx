@@ -12,6 +12,7 @@ import Roles from './pages/Roles.jsx';
 import Users from './pages/admin/Users.jsx';
 import Businesses from './pages/admin/Businesses.jsx';
 import AuditLog from './pages/admin/AuditLog.jsx';
+import System from './pages/admin/System.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Parties from './pages/Parties.jsx';
@@ -92,6 +93,7 @@ function Routed() {
             <Route path="admin/users" element={<Users />} />
             <Route path="admin/businesses" element={<Businesses />} />
             <Route path="admin/audit" element={<AuditLog />} />
+            <Route path="admin/system" element={<System />} />
           </>
         )}
 

@@ -237,7 +237,27 @@ model Settings {
   defaultTaxRate  Int      @default(0) // بالعُشر من المئة
   // لا يُسمح بقيود قبل هذا التاريخ (إقفال فترة)
   lockDate        DateTime?
-  updatedAt       DateTime @updatedAt
+
+  // بيانات تُطبع على الفواتير والتقارير
+  taxNumber String?
+  address   String?
+  phone     String?
+  email     String?
+
+  // ترقيم المستندات: البادئة لكل نوع، وهل يدخل العام في الرقم، وعدد الخانات.
+  // تغيير البادئة يبدأ تسلسلاً جديداً من 1 ولا يمسّ أرقام المستندات القائمة.
+  prefixSales      String  @default("INV")
+  prefixPurchase   String  @default("PUR")
+  prefixReceipt    String  @default("RCT")
+  prefixPayment    String  @default("PMT")
+  prefixAdjustment String  @default("ADJ")
+  numberIncludeYear Boolean @default(true)
+  numberPadding     Int     @default(4)
+
+  // وحدة المخزون: تُعطَّل للمنشآت الخدمية فتختفي شاشاتها وتُرفض حركاتها
+  inventoryEnabled Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
 }
 
 // ───────────────────────── الأصناف والمخزون ─────────────────────────

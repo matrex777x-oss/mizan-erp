@@ -119,6 +119,8 @@ async function startServer() {
       token = value;
     },
     getToken: () => token,
+    // لتنزيل ملف ثنائي خارج مساعد call الذي يفكّ JSON
+    base,
     seeded,
     createBusiness,
     createUser,

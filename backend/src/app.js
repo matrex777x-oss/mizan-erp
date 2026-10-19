@@ -12,6 +12,7 @@ const { authenticate, requirePasswordChanged, withBusiness, requireAdmin } = req
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const businessRoutes = require('./routes/businesses');
+const systemRoutes = require('./routes/system');
 const accountRoutes = require('./routes/accounts');
 const partyRoutes = require('./routes/parties');
 const journalRoutes = require('./routes/journal');
@@ -40,6 +41,7 @@ function createApp() {
   // إدارة النظام: قاعدة النظام لا قاعدة منشأة، فلا تمرّ بـ withBusiness
   app.use('/api/admin/users', requireAdmin, userRoutes);
   app.use('/api/admin/businesses', requireAdmin, businessRoutes);
+  app.use('/api/admin/system', requireAdmin, systemRoutes);
 
   // من هنا كل شيء داخل منشأة واحدة: withBusiness يصل الطلب بقاعدتها وحدها
   app.use('/api', withBusiness);

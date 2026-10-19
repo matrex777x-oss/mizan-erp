@@ -17,7 +17,7 @@ const NAV = [
       { to: '/invoices/purchase', label: 'فواتير المشتريات', cap: 'purchase.read' },
       { to: '/payments/receipts', label: 'سندات القبض', cap: 'receipt.read' },
       { to: '/payments/outgoing', label: 'سندات الصرف', cap: 'expense.read' },
-      { to: '/stock-adjustments', label: 'تسويات المخزون', cap: 'stock.read' },
+      { to: '/stock-adjustments', label: 'تسويات المخزون', cap: 'stock.read', module: 'inventory' },
       { to: '/journal', label: 'القيود اليومية', cap: 'journal.read' },
     ],
   },
@@ -32,7 +32,7 @@ const NAV = [
   {
     label: 'التقارير',
     links: [
-      { to: '/reports/stock', label: 'المخزون', cap: 'reports.operational' },
+      { to: '/reports/stock', label: 'المخزون', cap: 'reports.operational', module: 'inventory' },
       { to: '/reports/trial-balance', label: 'ميزان المراجعة', cap: 'reports.financial' },
       { to: '/reports/income-statement', label: 'قائمة الدخل', cap: 'reports.financial' },
       { to: '/reports/balance-sheet', label: 'المركز المالي', cap: 'reports.financial' },
@@ -88,7 +88,11 @@ export default function Layout() {
         )}
 
         {NAV.map((group) => {
-          const links = group.links.filter((link) => !link.cap || can(link.cap));
+          const links = group.links.filter(
+            (link) =>
+              (!link.cap || can(link.cap)) &&
+              (link.module !== 'inventory' || settings?.inventoryEnabled !== false),
+          );
           if (!links.length) return null;
 
           return (
@@ -118,6 +122,7 @@ export default function Layout() {
             <NavLink to="/admin/users" className="nav-link">المستخدمون</NavLink>
             <NavLink to="/admin/businesses" className="nav-link">المنشآت</NavLink>
             <NavLink to="/admin/audit" className="nav-link">سجل التدقيق</NavLink>
+            <NavLink to="/admin/system" className="nav-link">النظام</NavLink>
           </div>
         )}
 
