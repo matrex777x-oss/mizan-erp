@@ -1,12 +1,36 @@
 'use strict';
 
-require('dotenv').config();
+const { ensureEnvFile, resolveDatabaseUrl, prepareDatabase } = require('./bootstrap');
+
+ensureEnvFile();
+require('dotenv').config({ path: require('node:path').join(__dirname, '..', '.env') });
+resolveDatabaseUrl();
 
 const { createApp } = require('./app');
 
+// المشغّلات الخارجية (تطبيقات الأنفاق، المنصات، الحاويات) تمرّر المنفذ بيئياً
 const port = Number(process.env.PORT || 4000);
-const app = createApp();
+const host = process.env.HOST || '0.0.0.0';
 
-app.listen(port, () => {
-  console.log(`ميزان — الخادم يعمل على المنفذ ${port}`);
+async function start() {
+  const credentials = await prepareDatabase();
+
+  createApp().listen(port, host, () => {
+    console.log('');
+    console.log(`  ميزان — نظام محاسبي`);
+    console.log(`  يعمل على http://${host === '0.0.0.0' ? 'localhost' : host}:${port}`);
+    if (credentials) {
+      console.log('');
+      console.log('  أول تشغيل — بيانات الدخول:');
+      console.log(`    ${credentials.email}`);
+      console.log(`    ${credentials.password}`);
+      console.log('  غيّرها فوراً قبل أي استخدام حقيقي.');
+    }
+    console.log('');
+  });
+}
+
+start().catch((err) => {
+  console.error('تعذّر إقلاع الخادم:', err);
+  process.exit(1);
 });

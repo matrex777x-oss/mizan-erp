@@ -113,11 +113,16 @@ async function main() {
 
   console.log(`✓ شجرة الحسابات: ${accounts} حساباً`);
   console.log(`✓ المستخدم: ${owner.email} / ${owner.password}`);
+  return owner;
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exitCode = 1;
-  })
-  .finally(() => prisma.$disconnect());
+module.exports = { main, seedChart, seedOwner, CHART };
+
+if (require.main === module) {
+  main()
+    .catch((err) => {
+      console.error(err);
+      process.exitCode = 1;
+    })
+    .finally(() => prisma.$disconnect());
+}
