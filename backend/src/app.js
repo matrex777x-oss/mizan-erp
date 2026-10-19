@@ -12,6 +12,8 @@ const partyRoutes = require('./routes/parties');
 const journalRoutes = require('./routes/journal');
 const invoiceRoutes = require('./routes/invoices');
 const paymentRoutes = require('./routes/payments');
+const itemRoutes = require('./routes/items');
+const adjustmentRoutes = require('./routes/adjustments');
 const reportRoutes = require('./routes/reports');
 const settingsRoutes = require('./routes/settings');
 
@@ -32,6 +34,8 @@ function createApp() {
   app.use('/api/journal', journalRoutes);
   app.use('/api/invoices', invoiceRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/items', itemRoutes);
+  app.use('/api/stock-adjustments', adjustmentRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/settings', settingsRoutes);
 

@@ -22,7 +22,7 @@ const router = express.Router();
 
 const WITH_DETAILS = {
   party: true,
-  lines: { include: { account: true }, orderBy: { sortOrder: 'asc' } },
+  lines: { include: { account: true, item: true }, orderBy: { sortOrder: 'asc' } },
 };
 
 function withBalance(row, paid) {
@@ -105,9 +105,7 @@ async function readPayload(body, kind) {
   }
 
   const rawLines = requireArray(body?.lines, 'سطور الفاتورة');
-  const accountIds = [...new Set(rawLines.map((l) => l.accountId))];
-  const accounts = await prisma.account.findMany({ where: { id: { in: accountIds } } });
-  const computed = computeLines(kind, rawLines, new Map(accounts.map((a) => [a.id, a])));
+  const computed = await computeLines(prisma, kind, rawLines);
 
   return {
     date,

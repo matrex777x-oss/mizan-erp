@@ -6,6 +6,7 @@ const prisma = require('../lib/prisma');
 const { optionalDate, requireString } = require('../lib/validate');
 const { notFound } = require('../lib/errors');
 const { NATURAL_SIDE, SYSTEM_ACCOUNTS } = require('../lib/constants');
+const { fromQuantity } = require('../lib/money');
 const serialize = require('../lib/serialize');
 
 const router = express.Router();
@@ -407,6 +408,83 @@ router.get('/aging', async (req, res, next) => {
   }
 });
 
+// ───────────────────────── المخزون ─────────────────────────
+
+/** أرصدة الأصناف المخزنية بالكمية والتكلفة المتوسطة والقيمة. */
+router.get('/stock', async (req, res, next) => {
+  try {
+    const where = { kind: 'STOCK' };
+    if (req.query.active === 'true') where.active = true;
+    if (req.query.q) where.OR = [{ name: { contains: req.query.q } }, { code: { contains: req.query.q } }];
+
+    const items = await prisma.item.findMany({ where, orderBy: { name: 'asc' } });
+    const hideEmpty = req.query.hideEmpty === 'true';
+
+    let totalValue = 0n;
+    const rows = [];
+
+    for (const row of items) {
+      if (hideEmpty && row.onHand === 0n) continue;
+      totalValue += row.stockValue;
+      const card = serialize.item(row);
+      rows.push({
+        itemId: row.id,
+        code: row.code,
+        name: row.name,
+        unit: row.unit,
+        onHand: card.onHand,
+        averageCost: card.averageCost,
+        value: card.stockValue,
+        reorderLevel: card.reorderLevel,
+        belowReorder: row.reorderLevel > 0n && row.onHand <= row.reorderLevel,
+        active: row.active,
+      });
+    }
+
+    res.json({ rows, totals: { value: serialize.money(totalValue), items: rows.length } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** كشف حركة صنف واحد برصيد كمية وقيمة متحرك. */
+router.get('/stock/:itemId', async (req, res, next) => {
+  try {
+    const item = await prisma.item.findUnique({ where: { id: req.params.itemId } });
+    if (!item) throw notFound('الصنف غير موجود');
+
+    const from = optionalDate(req.query.from, 'من تاريخ');
+    const to = optionalDate(req.query.to, 'إلى تاريخ');
+
+    const moves = await prisma.stockMove.findMany({
+      where: {
+        itemId: item.id,
+        ...((from || to) && { date: { ...(from && { gte: from }), ...(to && { lte: to }) } }),
+      },
+      orderBy: [{ date: 'asc' }, { createdAt: 'asc' }],
+    });
+
+    let opening = { qty: 0n, value: 0n };
+    if (from) {
+      const before = await prisma.stockMove.findFirst({
+        where: { itemId: item.id, date: { lt: from } },
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+      });
+      if (before) opening = { qty: before.balanceQty, value: before.balanceValue };
+    }
+
+    res.json({
+      item: serialize.item(item),
+      from: serialize.day(from),
+      to: serialize.day(to),
+      opening: { quantity: fromQuantity(opening.qty), value: serialize.money(opening.value) },
+      rows: moves.map(serialize.stockMove),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ───────────────────────── لوحة المؤشرات ─────────────────────────
 
 router.get('/dashboard', async (_req, res, next) => {
@@ -414,12 +492,13 @@ router.get('/dashboard', async (_req, res, next) => {
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 12));
 
-    const [accounts, sumsAll, sumsMonth, openSales, openPurchases] = await Promise.all([
+    const [accounts, sumsAll, sumsMonth, openSales, openPurchases, stock] = await Promise.all([
       prisma.account.findMany({ where: { isGroup: false } }),
       sumsByAccount({}),
       sumsByAccount({ from: monthStart }),
       prisma.invoice.count({ where: { kind: 'SALES', status: 'POSTED' } }),
       prisma.invoice.count({ where: { kind: 'PURCHASE', status: 'POSTED' } }),
+      prisma.item.aggregate({ where: { kind: 'STOCK' }, _sum: { stockValue: true } }),
     ]);
 
     const total = (sums, predicate) =>
@@ -441,6 +520,7 @@ router.get('/dashboard', async (_req, res, next) => {
       monthIncome: serialize.money(monthIncome),
       monthExpense: serialize.money(monthExpense),
       monthProfit: serialize.money(monthIncome - monthExpense),
+      stockValue: serialize.money(stock._sum.stockValue ?? 0n),
       postedSalesInvoices: openSales,
       postedPurchaseInvoices: openPurchases,
     });

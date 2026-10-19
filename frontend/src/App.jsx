@@ -8,6 +8,9 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Accounts from './pages/Accounts.jsx';
 import Parties from './pages/Parties.jsx';
+import Items from './pages/Items.jsx';
+import StockAdjustments from './pages/StockAdjustments.jsx';
+import StockAdjustmentForm from './pages/StockAdjustmentForm.jsx';
 import Invoices from './pages/Invoices.jsx';
 import InvoiceForm from './pages/InvoiceForm.jsx';
 import Payments from './pages/Payments.jsx';
@@ -19,6 +22,7 @@ import IncomeStatement from './pages/reports/IncomeStatement.jsx';
 import BalanceSheet from './pages/reports/BalanceSheet.jsx';
 import LedgerReport from './pages/reports/Ledger.jsx';
 import Aging from './pages/reports/Aging.jsx';
+import StockReport from './pages/reports/Stock.jsx';
 import Settings from './pages/Settings.jsx';
 
 function Routed() {
@@ -48,12 +52,18 @@ function Routed() {
         <Route path="payments/:kind/new" element={<PaymentForm />} />
         <Route path="payments/:kind/:id" element={<PaymentForm />} />
 
+        <Route path="stock-adjustments" element={<StockAdjustments />} />
+        <Route path="stock-adjustments/new" element={<StockAdjustmentForm />} />
+        <Route path="stock-adjustments/:id" element={<StockAdjustmentForm />} />
+
         <Route path="journal" element={<Journal />} />
         <Route path="journal/new" element={<JournalForm />} />
 
         <Route path="parties" element={<Parties />} />
+        <Route path="items" element={<Items />} />
         <Route path="accounts" element={<Accounts />} />
 
+        <Route path="reports/stock" element={<StockReport />} />
         <Route path="reports/trial-balance" element={<TrialBalance />} />
         <Route path="reports/income-statement" element={<IncomeStatement />} />
         <Route path="reports/balance-sheet" element={<BalanceSheet />} />

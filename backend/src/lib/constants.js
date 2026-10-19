@@ -3,10 +3,13 @@
 const ROLES = ['OWNER', 'ACCOUNTANT', 'VIEWER'];
 const ACCOUNT_TYPES = ['ASSET', 'LIABILITY', 'EQUITY', 'INCOME', 'EXPENSE'];
 const PARTY_KINDS = ['CUSTOMER', 'SUPPLIER', 'BOTH'];
-const ENTRY_SOURCES = ['MANUAL', 'INVOICE', 'PAYMENT', 'OPENING'];
+const ENTRY_SOURCES = ['MANUAL', 'INVOICE', 'PAYMENT', 'ADJUSTMENT', 'OPENING'];
 const INVOICE_KINDS = ['SALES', 'PURCHASE'];
 const DOC_STATUSES = ['DRAFT', 'POSTED', 'CANCELLED'];
 const PAYMENT_KINDS = ['RECEIPT', 'PAYMENT'];
+const ITEM_KINDS = ['STOCK', 'SERVICE'];
+const MOVE_KINDS = ['IN', 'OUT'];
+const MOVE_DIRECTIONS = ['IN', 'OUT'];
 
 // الجانب الطبيعي لكل نوع حساب: 1 مدين، -1 دائن
 const NATURAL_SIDE = {
@@ -24,6 +27,9 @@ const SYSTEM_ACCOUNTS = {
   TAX_OUTPUT: 'TAX_OUTPUT', // ضريبة المخرجات (مستحقة للدولة)
   TAX_INPUT: 'TAX_INPUT', // ضريبة المدخلات (قابلة للخصم)
   RETAINED: 'RETAINED', // الأرباح المحتجزة
+  INVENTORY: 'INVENTORY', // مخزون البضاعة
+  COGS: 'COGS', // تكلفة البضاعة المباعة
+  STOCK_ADJUST: 'STOCK_ADJUST', // فروق وتسويات المخزون
 };
 
 const ACCOUNT_TYPE_LABELS = {
@@ -42,6 +48,9 @@ module.exports = {
   INVOICE_KINDS,
   DOC_STATUSES,
   PAYMENT_KINDS,
+  ITEM_KINDS,
+  MOVE_KINDS,
+  MOVE_DIRECTIONS,
   NATURAL_SIDE,
   SYSTEM_ACCOUNTS,
   ACCOUNT_TYPE_LABELS,

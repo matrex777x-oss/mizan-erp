@@ -1,7 +1,11 @@
 'use strict';
 
-// قاعدة بيانات اختبار منفصلة — تُضبط قبل تحميل عميل Prisma
-process.env.DATABASE_URL = 'file:./test.db';
+// قاعدة بيانات مستقلة لكل ملف اختبار — node --test يشغّل الملفات بالتوازي
+const nodePath = require('node:path');
+const suite = nodePath.basename(process.argv[1] || 'suite', '.js');
+
+// تُضبط قبل تحميل عميل Prisma
+process.env.DATABASE_URL = `file:./test-${suite}.db`;
 process.env.JWT_SECRET = 'test-secret';
 process.env.SEED_EMAIL = 'tester@mizan.local';
 process.env.SEED_PASSWORD = 'Test@12345';
@@ -15,7 +19,7 @@ const ROOT = path.join(__dirname, '..');
 /** يعيد بناء قاعدة بيانات الاختبار من الصفر. */
 function resetDatabase() {
   for (const suffix of ['', '-journal']) {
-    fs.rmSync(path.join(ROOT, 'prisma', `test.db${suffix}`), { force: true });
+    fs.rmSync(path.join(ROOT, 'prisma', `test-${suite}.db${suffix}`), { force: true });
   }
   const options = { cwd: ROOT, env: process.env, stdio: 'pipe' };
   execFileSync('npx', ['prisma', 'db', 'push', '--skip-generate', '--accept-data-loss'], options);

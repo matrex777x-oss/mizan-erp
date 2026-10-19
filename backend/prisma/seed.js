@@ -17,7 +17,7 @@ const CHART = [
   ['1202', 'ضريبة القيمة المضافة — مدخلات', 'ASSET', false, SYSTEM_ACCOUNTS.TAX_INPUT],
   ['1203', 'مصروفات مدفوعة مقدماً', 'ASSET', false, null],
   ['13', 'المخزون', 'ASSET', true, null],
-  ['1301', 'مخزون البضاعة', 'ASSET', false, null],
+  ['1301', 'مخزون البضاعة', 'ASSET', false, SYSTEM_ACCOUNTS.INVENTORY],
   ['14', 'الأصول الثابتة', 'ASSET', true, null],
   ['1401', 'أثاث ومعدات', 'ASSET', false, null],
   ['1402', 'أجهزة حاسب', 'ASSET', false, null],
@@ -44,7 +44,8 @@ const CHART = [
 
   ['5', 'المصروفات', 'EXPENSE', true, null],
   ['51', 'تكلفة الإيرادات', 'EXPENSE', true, null],
-  ['5101', 'تكلفة البضاعة المباعة', 'EXPENSE', false, null],
+  ['5101', 'تكلفة البضاعة المباعة', 'EXPENSE', false, SYSTEM_ACCOUNTS.COGS],
+  ['5102', 'فروق وتسويات المخزون', 'EXPENSE', false, SYSTEM_ACCOUNTS.STOCK_ADJUST],
   ['52', 'المصروفات التشغيلية', 'EXPENSE', true, null],
   ['5201', 'الرواتب والأجور', 'EXPENSE', false, null],
   ['5202', 'الإيجار', 'EXPENSE', false, null],

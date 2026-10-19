@@ -14,6 +14,7 @@ const NAV = [
       { to: '/invoices/purchase', label: 'فواتير المشتريات' },
       { to: '/payments/receipts', label: 'سندات القبض' },
       { to: '/payments/outgoing', label: 'سندات الصرف' },
+      { to: '/stock-adjustments', label: 'تسويات المخزون' },
       { to: '/journal', label: 'القيود اليومية' },
     ],
   },
@@ -21,12 +22,14 @@ const NAV = [
     label: 'البيانات الأساسية',
     links: [
       { to: '/parties', label: 'العملاء والموردون' },
+      { to: '/items', label: 'الأصناف والخدمات' },
       { to: '/accounts', label: 'شجرة الحسابات' },
     ],
   },
   {
     label: 'التقارير',
     links: [
+      { to: '/reports/stock', label: 'المخزون' },
       { to: '/reports/trial-balance', label: 'ميزان المراجعة' },
       { to: '/reports/income-statement', label: 'قائمة الدخل' },
       { to: '/reports/balance-sheet', label: 'المركز المالي' },
