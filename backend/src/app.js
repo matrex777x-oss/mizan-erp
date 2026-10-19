@@ -1,5 +1,8 @@
 'use strict';
 
+const fs = require('node:fs');
+const path = require('node:path');
+
 const express = require('express');
 const cors = require('cors');
 
@@ -40,6 +43,21 @@ function createApp() {
   app.use('/api/settings', settingsRoutes);
 
   app.use('/api', (_req, res) => res.status(404).json({ error: 'المسار غير موجود' }));
+
+  // الواجهة المبنيّة تُقدَّم من الخادم نفسه، فيكفي منفذ واحد للتطبيق كله
+  const dist = process.env.FRONTEND_DIST || path.join(__dirname, '..', '..', 'frontend', 'dist');
+  if (fs.existsSync(path.join(dist, 'index.html'))) {
+    app.use(express.static(dist, { index: false, maxAge: '1h' }));
+    // أي مسار غير /api يعود إلى الواجهة لتتولّى التوجيه بنفسها
+    app.get('*', (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+  } else {
+    app.get('/', (_req, res) =>
+      res
+        .status(503)
+        .type('text/plain; charset=utf-8')
+        .send('الواجهة غير مبنيّة بعد. شغّل: npm run setup'),
+    );
+  }
 
   // eslint-disable-next-line no-unused-vars
   app.use((err, _req, res, _next) => {
