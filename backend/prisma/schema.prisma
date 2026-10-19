@@ -1,0 +1,238 @@
+// نظام ميزان المحاسبي — مخطط قاعدة البيانات
+// كل المبالغ تُخزَّن كأعداد صحيحة بالوحدة الصغرى (قروش/فلس) لتفادي أخطاء الفاصلة العائمة.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  password  String
+  role      String   @default("ACCOUNTANT") // OWNER | ACCOUNTANT | VIEWER
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  journalEntries JournalEntry[]
+}
+
+// ───────────────────────── شجرة الحسابات ─────────────────────────
+
+
+model Account {
+  id       String      @id @default(cuid())
+  code     String      @unique
+  name     String
+  type     String // ASSET | LIABILITY | EQUITY | INCOME | EXPENSE
+  parentId String?
+  parent   Account?    @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[]   @relation("AccountTree")
+
+  // حساب تجميعي لا يقبل القيود مباشرة
+  isGroup  Boolean @default(false)
+  // حساب نظامي يستخدمه البرنامج (الذمم المدينة/الدائنة…) فلا يُحذف
+  systemKey String? @unique
+  active   Boolean @default(true)
+
+  lines        JournalLine[]
+  invoiceLines InvoiceLine[] @relation("InvoiceLineAccount")
+  payments     Payment[]     @relation("PaymentCashAccount")
+
+  @@index([type])
+  @@index([parentId])
+}
+
+// ───────────────────────── العملاء والموردون ─────────────────────────
+
+
+model Party {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  kind      String // CUSTOMER | SUPPLIER | BOTH
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  taxNumber String?
+  notes     String?
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+
+  invoices Invoice[]
+  payments Payment[]
+  lines    JournalLine[]
+
+  @@index([kind])
+  @@index([name])
+}
+
+// ───────────────────────── القيود اليومية ─────────────────────────
+
+
+model JournalEntry {
+  id       String      @id @default(cuid())
+  number   Int         @unique
+  date     DateTime
+  memo     String?
+  source   String @default("MANUAL") // MANUAL | INVOICE | PAYMENT | OPENING
+  // معرّف المستند الذي ولّد القيد (فاتورة أو سند) — لحذفه معه
+  sourceId String?
+
+  createdById String?
+  createdBy   User?   @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  lines JournalLine[]
+
+  @@index([date])
+  @@index([source, sourceId])
+}
+
+model JournalLine {
+  id      String       @id @default(cuid())
+  entryId String
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+
+  accountId String
+  account   Account @relation(fields: [accountId], references: [id])
+
+  partyId String?
+  party   Party?  @relation(fields: [partyId], references: [id])
+
+  // بالوحدة الصغرى؛ أحدهما صفر دائماً
+  debit  BigInt @default(0)
+  credit BigInt @default(0)
+
+  memo String?
+
+  @@index([accountId])
+  @@index([partyId])
+  @@index([entryId])
+}
+
+// ───────────────────────── الفواتير ─────────────────────────
+
+
+
+model Invoice {
+  id     String      @id @default(cuid())
+  kind   String // SALES | PURCHASE
+  number String
+  date   DateTime
+  dueDate DateTime?
+
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id])
+
+  status String @default("DRAFT") // DRAFT | POSTED | CANCELLED
+  notes  String?
+
+  // مجاميع محسوبة ومخزَّنة بالوحدة الصغرى
+  subtotal BigInt @default(0)
+  taxTotal BigInt @default(0)
+  total    BigInt @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lines      InvoiceLine[]
+  allocations PaymentAllocation[]
+
+  @@unique([kind, number])
+  @@index([partyId])
+  @@index([date])
+  @@index([status])
+}
+
+model InvoiceLine {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  // الكمية بثلاث منازل عشرية مخزَّنة كعدد صحيح (1.5 => 1500)
+  quantity    BigInt @default(1000)
+  // سعر الوحدة بالوحدة الصغرى
+  unitPrice   BigInt @default(0)
+  // نسبة الضريبة بالعُشر من المئة (15% => 1500)
+  taxRate     Int    @default(0)
+
+  // حساب الإيراد (للمبيعات) أو المصروف (للمشتريات)
+  accountId String
+  account   Account @relation("InvoiceLineAccount", fields: [accountId], references: [id])
+
+  lineSubtotal BigInt @default(0)
+  lineTax      BigInt @default(0)
+  lineTotal    BigInt @default(0)
+
+  sortOrder Int @default(0)
+
+  @@index([invoiceId])
+}
+
+// ───────────────────────── سندات القبض والصرف ─────────────────────────
+
+
+
+model Payment {
+  id     String      @id @default(cuid())
+  kind   String // RECEIPT | PAYMENT
+  number String
+  date   DateTime
+
+  partyId String
+  party   Party  @relation(fields: [partyId], references: [id])
+
+  // الحساب النقدي/البنكي
+  cashAccountId String
+  cashAccount   Account @relation("PaymentCashAccount", fields: [cashAccountId], references: [id])
+
+  amount BigInt @default(0)
+  status String @default("DRAFT") // DRAFT | POSTED | CANCELLED
+  reference String?
+  notes     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  allocations PaymentAllocation[]
+
+  @@unique([kind, number])
+  @@index([partyId])
+  @@index([date])
+}
+
+// توزيع السند على الفواتير
+model PaymentAllocation {
+  id        String  @id @default(cuid())
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  amount    BigInt  @default(0)
+
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+}
+
+// ───────────────────────── إعدادات المنشأة ─────────────────────────
+
+model Settings {
+  id              Int      @id @default(1)
+  companyName     String   @default("منشأتي")
+  currencyCode    String   @default("SAR")
+  currencySymbol  String   @default("ر.س")
+  decimalPlaces   Int      @default(2)
+  fiscalYearStart Int      @default(1) // رقم الشهر 1..12
+  defaultTaxRate  Int      @default(0) // بالعُشر من المئة
+  // لا يُسمح بقيود قبل هذا التاريخ (إقفال فترة)
+  lockDate        DateTime?
+  updatedAt       DateTime @updatedAt
+}

@@ -1,0 +1,76 @@
+import { Navigate, Route, Routes } from 'react-router-dom';
+
+import Layout from './components/Layout.jsx';
+import { Loading } from './components/ui.jsx';
+import { SessionProvider, useSession } from './lib/session';
+
+import Login from './pages/Login.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Accounts from './pages/Accounts.jsx';
+import Parties from './pages/Parties.jsx';
+import Invoices from './pages/Invoices.jsx';
+import InvoiceForm from './pages/InvoiceForm.jsx';
+import Payments from './pages/Payments.jsx';
+import PaymentForm from './pages/PaymentForm.jsx';
+import Journal from './pages/Journal.jsx';
+import JournalForm from './pages/JournalForm.jsx';
+import TrialBalance from './pages/reports/TrialBalance.jsx';
+import IncomeStatement from './pages/reports/IncomeStatement.jsx';
+import BalanceSheet from './pages/reports/BalanceSheet.jsx';
+import LedgerReport from './pages/reports/Ledger.jsx';
+import Aging from './pages/reports/Aging.jsx';
+import Settings from './pages/Settings.jsx';
+
+function Routed() {
+  const { user, loading } = useSession();
+
+  if (loading) return <Loading label="جارٍ فتح الجلسة…" />;
+  if (!user) {
+    return (
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    );
+  }
+
+  return (
+    <Routes>
+      <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route element={<Layout />}>
+        <Route index element={<Dashboard />} />
+
+        <Route path="invoices/:kind" element={<Invoices />} />
+        <Route path="invoices/:kind/new" element={<InvoiceForm />} />
+        <Route path="invoices/:kind/:id" element={<InvoiceForm />} />
+
+        <Route path="payments/:kind" element={<Payments />} />
+        <Route path="payments/:kind/new" element={<PaymentForm />} />
+        <Route path="payments/:kind/:id" element={<PaymentForm />} />
+
+        <Route path="journal" element={<Journal />} />
+        <Route path="journal/new" element={<JournalForm />} />
+
+        <Route path="parties" element={<Parties />} />
+        <Route path="accounts" element={<Accounts />} />
+
+        <Route path="reports/trial-balance" element={<TrialBalance />} />
+        <Route path="reports/income-statement" element={<IncomeStatement />} />
+        <Route path="reports/balance-sheet" element={<BalanceSheet />} />
+        <Route path="reports/ledger" element={<LedgerReport />} />
+        <Route path="reports/aging" element={<Aging />} />
+
+        <Route path="settings" element={<Settings />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Route>
+    </Routes>
+  );
+}
+
+export default function App() {
+  return (
+    <SessionProvider>
+      <Routed />
+    </SessionProvider>
+  );
+}
