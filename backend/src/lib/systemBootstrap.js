@@ -36,7 +36,9 @@ function pushSystemSchema() {
 }
 
 function fingerprint() {
-  return crypto.createHash('sha256').update(fs.readFileSync(SYSTEM_SCHEMA)).digest('hex').slice(0, 16);
+  // المحتوى لا البايتات — انظر businessDb.schemaFingerprint
+  const content = fs.readFileSync(SYSTEM_SCHEMA, 'utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
 }
 
 /** يبني جداول قاعدة النظام أو يوائمها مع المخطط بعد تحديث الكود. */

@@ -96,6 +96,15 @@ function ensureFrontendBuilt() {
  * ثم `npm start`، كما أن npm الحديث يحجب سكربتات التثبيت افتراضياً فلا يولّده
  * الحزمة نفسها. إن لم يكن مولَّداً نولّده مرة واحدة قبل أول استيراد له.
  */
+/**
+ * بصمة محتوى المخطط لا بايتاته: git يحوّل نهايات الأسطر على ويندوز، فبصمة
+ * البايتات تتغيّر بمجرد checkout ويُعاد التوليد ومواءمة القواعد بلا داعٍ.
+ */
+function schemaStamp(schemaPath) {
+  const content = fs.readFileSync(schemaPath, 'utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(content).digest('hex');
+}
+
 function ensurePrismaClient() {
   const clients = [
     { schema: 'prisma/schema.prisma', out: ['node_modules', '.prisma', 'client'] },
@@ -110,7 +119,7 @@ function ensurePrismaClient() {
     // لا نقارن بنسخة المخطط التي يضعها المولّد: هو يعيد تنسيقها فلا تطابق
     // الأصل حرفياً أبداً، فيبدو المخطط متغيّراً في كل إقلاع.
     const stampPath = path.join(outDir, '.mizan-schema');
-    const stamp = crypto.createHash('sha256').update(fs.readFileSync(schemaPath)).digest('hex');
+    const stamp = schemaStamp(schemaPath);
 
     let applied = null;
     try {

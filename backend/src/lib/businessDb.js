@@ -58,7 +58,10 @@ function pushSchema(dbPath) {
 // بصمة المخطط المطبَّق على كل قاعدة، محفوظة بجانبها. بها نعرف أن تحديث الكود
 // غيّر المخطط فنحدّث القواعد مرة واحدة، بدل تشغيل db push في كل إقلاع.
 function schemaFingerprint() {
-  return crypto.createHash('sha256').update(fs.readFileSync(BUSINESS_SCHEMA)).digest('hex').slice(0, 16);
+  // المحتوى لا البايتات: git يحوّل نهايات الأسطر على ويندوز، فبصمة البايتات
+  // تتغيّر بمجرد سحب المستودع فتُعاد مواءمة كل قاعدة منشأة بلا داعٍ
+  const content = fs.readFileSync(BUSINESS_SCHEMA, 'utf8').replace(/\r\n/g, '\n');
+  return crypto.createHash('sha256').update(content).digest('hex').slice(0, 16);
 }
 
 function markerPath(slug) {
