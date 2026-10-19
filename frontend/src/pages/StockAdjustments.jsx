@@ -8,7 +8,8 @@ import { formatDate, STATUS_LABELS } from '../lib/format';
 import { useSession } from '../lib/session';
 
 export default function StockAdjustments() {
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can('stock.write');
   const [status, setStatus] = useState('');
 
   const adjustments = useAsync(() => api.get(`/stock-adjustments${query({ status })}`), [status]);

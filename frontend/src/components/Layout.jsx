@@ -3,6 +3,8 @@ import { NavLink, Outlet } from 'react-router-dom';
 
 import { ROLE_LABELS, useSession } from '../lib/session';
 
+// لكل رابط القدرة التي تفتحه. ما لا يملكه الدور يختفي من الشريط، فلا يرى
+// المستخدم باباً يُغلق في وجهه — والفرض يبقى في الخادم على كل حال.
 const NAV = [
   {
     label: 'الرئيسية',
@@ -11,37 +13,37 @@ const NAV = [
   {
     label: 'الحركات',
     links: [
-      { to: '/invoices/sales', label: 'فواتير المبيعات' },
-      { to: '/invoices/purchase', label: 'فواتير المشتريات' },
-      { to: '/payments/receipts', label: 'سندات القبض' },
-      { to: '/payments/outgoing', label: 'سندات الصرف' },
-      { to: '/stock-adjustments', label: 'تسويات المخزون' },
-      { to: '/journal', label: 'القيود اليومية' },
+      { to: '/invoices/sales', label: 'فواتير المبيعات', cap: 'sales.read' },
+      { to: '/invoices/purchase', label: 'فواتير المشتريات', cap: 'purchase.read' },
+      { to: '/payments/receipts', label: 'سندات القبض', cap: 'receipt.read' },
+      { to: '/payments/outgoing', label: 'سندات الصرف', cap: 'expense.read' },
+      { to: '/stock-adjustments', label: 'تسويات المخزون', cap: 'stock.read' },
+      { to: '/journal', label: 'القيود اليومية', cap: 'journal.read' },
     ],
   },
   {
     label: 'البيانات الأساسية',
     links: [
-      { to: '/parties', label: 'العملاء والموردون' },
-      { to: '/items', label: 'الأصناف والخدمات' },
-      { to: '/accounts', label: 'شجرة الحسابات' },
+      { to: '/parties', label: 'العملاء والموردون', cap: 'parties.read' },
+      { to: '/items', label: 'الأصناف والخدمات', cap: 'items.read' },
+      { to: '/accounts', label: 'شجرة الحسابات', cap: 'accounts.read' },
     ],
   },
   {
     label: 'التقارير',
     links: [
-      { to: '/reports/stock', label: 'المخزون' },
-      { to: '/reports/trial-balance', label: 'ميزان المراجعة' },
-      { to: '/reports/income-statement', label: 'قائمة الدخل' },
-      { to: '/reports/balance-sheet', label: 'المركز المالي' },
-      { to: '/reports/ledger', label: 'كشف حساب' },
-      { to: '/reports/aging', label: 'أعمار الديون' },
+      { to: '/reports/stock', label: 'المخزون', cap: 'reports.operational' },
+      { to: '/reports/trial-balance', label: 'ميزان المراجعة', cap: 'reports.financial' },
+      { to: '/reports/income-statement', label: 'قائمة الدخل', cap: 'reports.financial' },
+      { to: '/reports/balance-sheet', label: 'المركز المالي', cap: 'reports.financial' },
+      { to: '/reports/ledger', label: 'كشف حساب', cap: 'reports.financial' },
+      { to: '/reports/aging', label: 'أعمار الديون', cap: 'reports.operational' },
     ],
   },
 ];
 
 export default function Layout() {
-  const { user, settings, logout, isOwner, isAdmin, businesses, businessId, role, selectBusiness } =
+  const { user, settings, logout, can, isAdmin, businesses, businessId, role, selectBusiness } =
     useSession();
 
   const [switching, setSwitching] = useState(false);
@@ -85,20 +87,28 @@ export default function Layout() {
           </div>
         )}
 
-        {NAV.map((group) => (
-          <div className="nav-group" key={group.label}>
-            <div className="nav-group-label">{group.label}</div>
-            {group.links.map((link) => (
-              <NavLink key={link.to} to={link.to} end={link.end} className="nav-link">
-                {link.label}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        {NAV.map((group) => {
+          const links = group.links.filter((link) => !link.cap || can(link.cap));
+          if (!links.length) return null;
+
+          return (
+            <div className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {links.map((link) => (
+                <NavLink key={link.to} to={link.to} end={link.end} className="nav-link">
+                  {link.label}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
 
         <div className="nav-group">
           <div className="nav-group-label">الإعدادات</div>
-          {isOwner && <NavLink to="/settings" className="nav-link">إعدادات المنشأة</NavLink>}
+          {can('settings.write') && (
+            <NavLink to="/settings" className="nav-link">إعدادات المنشأة</NavLink>
+          )}
+          <NavLink to="/roles" className="nav-link">الأدوار والصلاحيات</NavLink>
           <NavLink to="/account" className="nav-link">حسابي</NavLink>
         </div>
 

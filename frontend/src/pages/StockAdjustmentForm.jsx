@@ -13,7 +13,8 @@ const emptyLine = () => ({ itemId: '', direction: 'IN', quantity: '', unitCost: 
 export default function StockAdjustmentForm() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can('stock.write');
 
   const [header, setHeader] = useState({ date: today(), reason: '', counterAccountId: '', notes: '' });
   const [lines, setLines] = useState([emptyLine()]);

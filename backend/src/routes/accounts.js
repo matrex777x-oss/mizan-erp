@@ -3,7 +3,7 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
 const { badRequest, notFound } = require('../lib/errors');
 const { requireString, optionalString, requireEnum } = require('../lib/validate');
 const { ACCOUNT_TYPES } = require('../lib/constants');
@@ -12,7 +12,7 @@ const serialize = require('../lib/serialize');
 const router = express.Router();
 
 /** قائمة الحسابات مرتبة بالرمز، مع شكل شجري اختياري. */
-router.get('/', async (req, res, next) => {
+router.get('/', requireCapability('accounts.read'), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.type) where.type = requireEnum(req.query.type, ACCOUNT_TYPES, 'النوع');
@@ -38,7 +38,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireCapability('accounts.read'), async (req, res, next) => {
   try {
     const row = await prisma.account.findUnique({ where: { id: req.params.id } });
     if (!row) throw notFound('الحساب غير موجود');
@@ -61,7 +61,7 @@ async function assertNoCycle(accountId, parentId) {
   }
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', requireCapability('accounts.write'), async (req, res, next) => {
   try {
     const code = requireString(req.body?.code, 'الرمز', { max: 20 });
     const name = requireString(req.body?.name, 'الاسم');
@@ -83,7 +83,7 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', requireCapability('accounts.write'), async (req, res, next) => {
   try {
     const current = await prisma.account.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الحساب غير موجود');
@@ -125,7 +125,7 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', requireCapability('accounts.write'), async (req, res, next) => {
   try {
     const current = await prisma.account.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الحساب غير موجود');

@@ -6,6 +6,12 @@ const systemDb = require('./systemDb');
 const { getBusinessDb } = require('./businessDb');
 const { runWithDb } = require('./dbContext');
 const { unauthorized, forbidden, badRequest } = require('./errors');
+const {
+  CAPABILITIES,
+  INVOICE_CAPABILITY,
+  PAYMENT_CAPABILITY,
+  roleCan,
+} = require('./capabilities');
 
 const SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const TOKEN_TTL = '12h';
@@ -102,8 +108,41 @@ function requireRole(...roles) {
   };
 }
 
-/** كل ما يغيّر البيانات ممنوع على دور المُطّلع. */
-const requireWrite = requireRole('OWNER', 'ACCOUNTANT');
+/**
+ * يفرض قدرة على المسار. الفحص الوحيد في النظام: ما تقوله خريطة القدرات
+ * (lib/capabilities.js) هو ما يُفرض هنا، وهو نفسه ما تعرضه شاشة الأدوار.
+ */
+function requireCapability(capability) {
+  return (req, _res, next) => {
+    if (!req.user) return next(unauthorized());
+    if (!req.role) return next(badRequest('لم تُحدَّد المنشأة'));
+    if (!roleCan(req.role, capability)) {
+      return next(forbidden(`لا تملك صلاحية: ${CAPABILITIES[capability] || capability}`));
+    }
+    next();
+  };
+}
+
+/**
+ * فحص قدرة داخل المعالج، حين لا تُعرف إلا بعد قراءة نوع المستند:
+ * فواتير المبيعات غير المشتريات، وسندات القبض غير الصرف، والنوع يأتي في
+ * جسم الطلب أو من المستند المحفوظ.
+ */
+function assertCapability(req, capability) {
+  if (!roleCan(req.role, capability)) {
+    throw forbidden(`لا تملك صلاحية: ${CAPABILITIES[capability] || capability}`);
+  }
+}
+
+/** يفحص قدرة نوع فاتورة (SALES/PURCHASE) بفعل معيّن. */
+function assertInvoiceCapability(req, kind, action) {
+  assertCapability(req, `${INVOICE_CAPABILITY[kind]}.${action}`);
+}
+
+/** يفحص قدرة نوع سند (RECEIPT/PAYMENT) بفعل معيّن. */
+function assertPaymentCapability(req, kind, action) {
+  assertCapability(req, `${PAYMENT_CAPABILITY[kind]}.${action}`);
+}
 
 /** إدارة المنشآت والمستخدمين — لآدمن النظام وحده. */
 function requireAdmin(req, _res, next) {
@@ -118,7 +157,10 @@ module.exports = {
   requirePasswordChanged,
   withBusiness,
   requireRole,
-  requireWrite,
+  requireCapability,
+  assertCapability,
+  assertInvoiceCapability,
+  assertPaymentCapability,
   requireAdmin,
   SECRET,
 };

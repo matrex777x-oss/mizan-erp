@@ -6,6 +6,13 @@ const rateLimit = require('express-rate-limit');
 const systemDb = require('../lib/systemDb');
 const password = require('../lib/password');
 const { signToken, authenticate, requirePasswordChanged } = require('../lib/auth');
+const {
+  CAPABILITIES,
+  ROLE_CAPABILITIES,
+  ROLE_LABELS,
+  ROLE_DESCRIPTIONS,
+  capabilitiesOf,
+} = require('../lib/capabilities');
 const { audit, AUDIT_ACTIONS } = require('../lib/audit');
 const { unauthorized, badRequest, forbidden } = require('../lib/errors');
 const { requireString } = require('../lib/validate');
@@ -72,11 +79,15 @@ router.post('/login', loginLimiter, async (req, res, next) => {
     await systemDb.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
     await audit({ req, actor: user, businessId, action: AUDIT_ACTIONS.LOGIN });
 
+    const role = businesses.find((b) => b.id === businessId)?.role || null;
+
     res.json({
       token: signToken(user, businessId),
       user: publicUser(user),
       businesses,
       businessId,
+      role,
+      capabilities: role ? capabilitiesOf(role) : [],
     });
   } catch (err) {
     next(err);
@@ -93,6 +104,8 @@ router.get('/me', authenticate, async (req, res, next) => {
       businesses,
       businessId: current ? current.id : null,
       role: current ? current.role : null,
+      // الواجهة تخفي ما لا قدرة عليه؛ والفرض يبقى في الخادم على كل حال
+      capabilities: current ? capabilitiesOf(current.role) : [],
     });
   } catch (err) {
     next(err);
@@ -115,6 +128,7 @@ router.post('/select-business', authenticate, requirePasswordChanged, async (req
       token: signToken(req.user, businessId),
       businessId,
       role: membership.role,
+      capabilities: capabilitiesOf(membership.role),
       business: { id: membership.business.id, name: membership.business.name },
     });
   } catch (err) {
@@ -151,6 +165,19 @@ router.post('/change-password', authenticate, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+/** مرجع الأدوار وقدراتها — تعرضه شاشة «الأدوار والصلاحيات» كما هو. */
+router.get('/roles', authenticate, (_req, res) => {
+  res.json({
+    capabilities: CAPABILITIES,
+    roles: Object.entries(ROLE_CAPABILITIES).map(([role, caps]) => ({
+      role,
+      label: ROLE_LABELS[role],
+      description: ROLE_DESCRIPTIONS[role],
+      capabilities: caps,
+    })),
+  });
 });
 
 module.exports = router;

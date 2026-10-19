@@ -3,7 +3,7 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
 const { badRequest, notFound } = require('../lib/errors');
 const {
   requireString,
@@ -35,7 +35,7 @@ async function nextNumber(tx, date) {
   return `${stem}${String((Number.isFinite(seq) ? seq : 0) + 1).padStart(4, '0')}`;
 }
 
-router.get('/', async (req, res, next) => {
+router.get('/', requireCapability('stock.read'), async (req, res, next) => {
   try {
     const where = {};
     if (req.query.status) where.status = requireEnum(req.query.status, DOC_STATUSES, 'الحالة');
@@ -58,7 +58,7 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-router.get('/:id', async (req, res, next) => {
+router.get('/:id', requireCapability('stock.read'), async (req, res, next) => {
   try {
     const row = await prisma.stockAdjustment.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     if (!row) throw notFound('التسوية غير موجودة');
@@ -90,7 +90,7 @@ async function readPayload(body) {
   };
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', requireCapability('stock.write'), async (req, res, next) => {
   try {
     const payload = await readPayload(req.body);
     const shouldPost = req.body?.post === true;
@@ -118,7 +118,7 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', requireCapability('stock.write'), async (req, res, next) => {
   try {
     const current = await prisma.stockAdjustment.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('التسوية غير موجودة');
@@ -148,7 +148,7 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/post', requireWrite, async (req, res, next) => {
+router.post('/:id/post', requireCapability('stock.write'), async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const adjustment = await tx.stockAdjustment.findUnique({ where: { id: req.params.id } });
@@ -162,7 +162,7 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/unpost', requireWrite, async (req, res, next) => {
+router.post('/:id/unpost', requireCapability('stock.write'), async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const adjustment = await tx.stockAdjustment.findUnique({ where: { id: req.params.id } });
@@ -176,7 +176,7 @@ router.post('/:id/unpost', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/cancel', requireWrite, async (req, res, next) => {
+router.post('/:id/cancel', requireCapability('stock.write'), async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const adjustment = await tx.stockAdjustment.findUnique({ where: { id: req.params.id } });
@@ -192,7 +192,7 @@ router.post('/:id/cancel', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', requireCapability('stock.write'), async (req, res, next) => {
   try {
     const current = await prisma.stockAdjustment.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('التسوية غير موجودة');

@@ -14,12 +14,16 @@ const LABELS = {
   PAYMENT: { new: 'سند صرف جديد', party: 'المورد', partyKind: 'SUPPLIER', invoices: 'فواتير المشتريات غير المسدَّدة', invoiceKind: 'PURCHASE' },
 };
 
+const CAPABILITY_PREFIX = { RECEIPT: 'receipt', PAYMENT: 'expense' };
+
 export default function PaymentForm() {
   const { kind: slug, id } = useParams();
   const kind = KIND_BY_SLUG[slug] || 'RECEIPT';
   const labels = LABELS[kind];
   const navigate = useNavigate();
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can(`${CAPABILITY_PREFIX[kind]}.write`);
+  const canPost = can(`${CAPABILITY_PREFIX[kind]}.post`);
 
   const [form, setForm] = useState({ date: today(), partyId: '', cashAccountId: '', amount: '', reference: '', notes: '' });
   const [allocations, setAllocations] = useState({});
@@ -122,13 +126,13 @@ export default function PaymentForm() {
         subtitle={id ? formatDate(form.date) : 'وزّع المبلغ على الفواتير المفتوحة أو اتركه دفعة تحت الحساب'}
       >
         {id && <StatusBadge status={status} labels={STATUS_LABELS} />}
-        {id && status === 'POSTED' && canWrite && (
+        {id && status === 'POSTED' && canPost && (
           <button onClick={() => act('unpost', 'إلغاء ترحيل السند؟')} disabled={busy}>إلغاء الترحيل</button>
         )}
-        {id && status === 'DRAFT' && canWrite && (
+        {id && status === 'DRAFT' && canPost && (
           <button className="primary" onClick={() => act('post')} disabled={busy}>ترحيل</button>
         )}
-        {id && status !== 'CANCELLED' && canWrite && (
+        {id && status !== 'CANCELLED' && canPost && (
           <button className="danger" onClick={() => act('cancel', 'إلغاء السند؟')} disabled={busy}>إلغاء السند</button>
         )}
       </PageHead>

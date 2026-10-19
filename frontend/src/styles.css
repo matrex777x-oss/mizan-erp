@@ -322,3 +322,8 @@ tr.total td { font-weight: 700; background: var(--surface-2); border-top: 2px so
 /* خيار واحد بمربّع اختيار في سطر */
 .field-inline { display: flex; align-items: center; gap: 8px; cursor: pointer; }
 .field-inline input[type='checkbox'] { width: auto; margin: 0; }
+
+/* ───────── مصفوفة الصلاحيات ───────── */
+.group-row td { background: var(--surface-2, rgba(127,127,127,.06)); }
+.yes { color: var(--ok, #16a34a); font-weight: 700; }
+.no { color: var(--muted, #9ca3af); }

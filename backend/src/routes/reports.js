@@ -5,6 +5,8 @@ const express = require('express');
 const prisma = require('../lib/prisma');
 const { optionalDate, requireString } = require('../lib/validate');
 const { notFound } = require('../lib/errors');
+const { requireCapability } = require('../lib/auth');
+const { roleCan } = require('../lib/capabilities');
 const { NATURAL_SIDE, SYSTEM_ACCOUNTS } = require('../lib/constants');
 const { fromQuantity } = require('../lib/money');
 const serialize = require('../lib/serialize');
@@ -48,7 +50,7 @@ function rollUp(accounts, leafBalances) {
 
 // ───────────────────────── ميزان المراجعة ─────────────────────────
 
-router.get('/trial-balance', async (req, res, next) => {
+router.get('/trial-balance', requireCapability('reports.financial'), async (req, res, next) => {
   try {
     const from = optionalDate(req.query.from, 'من تاريخ');
     const to = optionalDate(req.query.to, 'إلى تاريخ');
@@ -100,7 +102,7 @@ router.get('/trial-balance', async (req, res, next) => {
 
 // ───────────────────────── قائمة الدخل ─────────────────────────
 
-router.get('/income-statement', async (req, res, next) => {
+router.get('/income-statement', requireCapability('reports.financial'), async (req, res, next) => {
   try {
     const from = optionalDate(req.query.from, 'من تاريخ');
     const to = optionalDate(req.query.to, 'إلى تاريخ');
@@ -157,7 +159,7 @@ router.get('/income-statement', async (req, res, next) => {
 
 // ───────────────────────── المركز المالي ─────────────────────────
 
-router.get('/balance-sheet', async (req, res, next) => {
+router.get('/balance-sheet', requireCapability('reports.financial'), async (req, res, next) => {
   try {
     const to = optionalDate(req.query.to, 'إلى تاريخ');
 
@@ -216,7 +218,7 @@ router.get('/balance-sheet', async (req, res, next) => {
 
 // ───────────────────────── كشف حساب (دفتر الأستاذ) ─────────────────────────
 
-router.get('/ledger/:accountId', async (req, res, next) => {
+router.get('/ledger/:accountId', requireCapability('reports.financial'), async (req, res, next) => {
   try {
     const account = await prisma.account.findUnique({ where: { id: req.params.accountId } });
     if (!account) throw notFound('الحساب غير موجود');
@@ -274,7 +276,7 @@ router.get('/ledger/:accountId', async (req, res, next) => {
 
 // ───────────────────────── كشف حساب طرف ─────────────────────────
 
-router.get('/party-statement/:partyId', async (req, res, next) => {
+router.get('/party-statement/:partyId', requireCapability('reports.operational'), async (req, res, next) => {
   try {
     const party = await prisma.party.findUnique({ where: { id: req.params.partyId } });
     if (!party) throw notFound('الطرف غير موجود');
@@ -345,7 +347,7 @@ const BUCKETS = [
   { key: 'over90', label: 'أكثر من 90 يوماً', max: Infinity },
 ];
 
-router.get('/aging', async (req, res, next) => {
+router.get('/aging', requireCapability('reports.operational'), async (req, res, next) => {
   try {
     const kind = requireString(req.query.kind || 'SALES', 'النوع');
     const asOf = optionalDate(req.query.asOf, 'حتى تاريخ') || new Date();
@@ -411,7 +413,7 @@ router.get('/aging', async (req, res, next) => {
 // ───────────────────────── المخزون ─────────────────────────
 
 /** أرصدة الأصناف المخزنية بالكمية والتكلفة المتوسطة والقيمة. */
-router.get('/stock', async (req, res, next) => {
+router.get('/stock', requireCapability('reports.operational'), async (req, res, next) => {
   try {
     const where = { kind: 'STOCK' };
     if (req.query.active === 'true') where.active = true;
@@ -448,7 +450,7 @@ router.get('/stock', async (req, res, next) => {
 });
 
 /** كشف حركة صنف واحد برصيد كمية وقيمة متحرك. */
-router.get('/stock/:itemId', async (req, res, next) => {
+router.get('/stock/:itemId', requireCapability('reports.operational'), async (req, res, next) => {
   try {
     const item = await prisma.item.findUnique({ where: { id: req.params.itemId } });
     if (!item) throw notFound('الصنف غير موجود');
@@ -487,8 +489,15 @@ router.get('/stock/:itemId', async (req, res, next) => {
 
 // ───────────────────────── لوحة المؤشرات ─────────────────────────
 
-router.get('/dashboard', async (_req, res, next) => {
+/**
+ * لوحة المؤشرات صفحة الهبوط للجميع، فلا تُرفض لأحد — لكنها تعرض ما يملك
+ * صاحبها قدرته: أرقام الدفتر لمن له التقارير المالية، وقيمة المخزون لمن له
+ * التقارير التشغيلية. فيرى المبيعاتُ لوحتَه ولا يرى أرباح المنشأة.
+ */
+router.get('/dashboard', async (req, res, next) => {
   try {
+    const financial = roleCan(req.role, 'reports.financial');
+    const operational = roleCan(req.role, 'reports.operational');
     const now = new Date();
     const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 12));
 
@@ -514,15 +523,18 @@ router.get('/dashboard', async (_req, res, next) => {
     const monthExpense = total(sumsMonth, (a) => a.type === 'EXPENSE');
 
     res.json({
-      cash: serialize.money(cash),
-      receivable: serialize.money(receivable),
-      payable: serialize.money(payable),
-      monthIncome: serialize.money(monthIncome),
-      monthExpense: serialize.money(monthExpense),
-      monthProfit: serialize.money(monthIncome - monthExpense),
-      stockValue: serialize.money(stock._sum.stockValue ?? 0n),
-      postedSalesInvoices: openSales,
-      postedPurchaseInvoices: openPurchases,
+      // الحقول الغائبة تعني «لا صلاحية»، والواجهة تخفي بطاقاتها
+      ...(financial && {
+        cash: serialize.money(cash),
+        receivable: serialize.money(receivable),
+        payable: serialize.money(payable),
+        monthIncome: serialize.money(monthIncome),
+        monthExpense: serialize.money(monthExpense),
+        monthProfit: serialize.money(monthIncome - monthExpense),
+      }),
+      ...(operational && { stockValue: serialize.money(stock._sum.stockValue ?? 0n) }),
+      ...(roleCan(req.role, 'sales.read') && { postedSalesInvoices: openSales }),
+      ...(roleCan(req.role, 'purchase.read') && { postedPurchaseInvoices: openPurchases }),
     });
   } catch (err) {
     next(err);

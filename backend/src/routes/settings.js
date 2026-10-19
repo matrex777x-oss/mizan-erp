@@ -3,7 +3,7 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireRole } = require('../lib/auth');
+const { requireCapability } = require('../lib/auth');
 const { badRequest } = require('../lib/errors');
 const { requireString, optionalDate } = require('../lib/validate');
 const { toRate } = require('../lib/money');
@@ -17,7 +17,7 @@ async function load() {
   return prisma.settings.upsert({ where: { id: 1 }, update: {}, create: DEFAULTS });
 }
 
-router.get('/', async (_req, res, next) => {
+router.get('/', requireCapability('settings.read'), async (_req, res, next) => {
   try {
     res.json({ settings: serialize.settings(await load()) });
   } catch (err) {
@@ -25,7 +25,7 @@ router.get('/', async (_req, res, next) => {
   }
 });
 
-router.patch('/', requireRole('OWNER'), async (req, res, next) => {
+router.patch('/', requireCapability('settings.write'), async (req, res, next) => {
   try {
     await load();
     const data = {};

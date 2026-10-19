@@ -15,6 +15,7 @@ export function SessionProvider({ children }) {
   const [businesses, setBusinesses] = useState([]);
   const [businessId, setBusinessId] = useState(null);
   const [role, setRole] = useState(null);
+  const [capabilities, setCapabilities] = useState([]);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(Boolean(getToken()));
 
@@ -32,6 +33,7 @@ export function SessionProvider({ children }) {
 
       const current = (data.businesses || []).find((b) => b.id === data.businessId);
       setRole(data.role || current?.role || null);
+      setCapabilities(data.capabilities || []);
 
       // الإعدادات تابعة للمنشأة، فلا تُطلب قبل اختيار واحدة، ولا قبل رفع
       // إلزام تغيير كلمة المرور (كل المسارات مسدودة حتى يُرفع)
@@ -89,6 +91,7 @@ export function SessionProvider({ children }) {
       setToken(data.token);
       setBusinessId(data.businessId);
       setRole(data.role);
+      setCapabilities(data.capabilities || []);
       await loadSettings();
       return data;
     },
@@ -115,6 +118,7 @@ export function SessionProvider({ children }) {
     setBusinesses([]);
     setBusinessId(null);
     setRole(null);
+    setCapabilities([]);
     setSettings(null);
   }, []);
 
@@ -124,6 +128,7 @@ export function SessionProvider({ children }) {
       businesses,
       businessId,
       role,
+      capabilities,
       settings,
       loading,
       login,
@@ -135,7 +140,9 @@ export function SessionProvider({ children }) {
       setSettings,
       mustChangePassword: Boolean(user?.mustChangePassword),
       isAdmin: Boolean(user?.isAdmin),
-      canWrite: role === 'OWNER' || role === 'ACCOUNTANT',
+      // نفس القدرات التي يفرضها الخادم، تصل في /auth/me — فما تخفيه الواجهة
+      // هو ما يرفضه الخادم، لا تخمين قد يختلف عنه
+      can: (capability) => capabilities.includes(capability),
       isOwner: role === 'OWNER',
       business: businesses.find((b) => b.id === businessId) || null,
       currency: settings?.currencySymbol || '',
@@ -145,6 +152,7 @@ export function SessionProvider({ children }) {
       businesses,
       businessId,
       role,
+      capabilities,
       settings,
       loading,
       login,
@@ -165,4 +173,12 @@ export function useSession() {
   return context;
 }
 
-export const ROLE_LABELS = { OWNER: 'مالك', ACCOUNTANT: 'محاسب', VIEWER: 'مُطّلع' };
+// أسماء الأدوار — ترتيبها هو ترتيب القائمة في شاشة الصلاحيات.
+// تعريفها الكامل وقدراتها في backend/src/lib/capabilities.js
+export const ROLE_LABELS = {
+  OWNER: 'مالك',
+  ACCOUNTANT: 'محاسب',
+  SALES: 'مبيعات',
+  INVENTORY: 'مخزن',
+  VIEWER: 'مُطّلع',
+};

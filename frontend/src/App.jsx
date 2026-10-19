@@ -8,6 +8,7 @@ import Login from './pages/Login.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
 import SelectBusiness from './pages/SelectBusiness.jsx';
 import Account from './pages/Account.jsx';
+import Roles from './pages/Roles.jsx';
 import Users from './pages/admin/Users.jsx';
 import Businesses from './pages/admin/Businesses.jsx';
 import AuditLog from './pages/admin/AuditLog.jsx';
@@ -84,6 +85,7 @@ function Routed() {
 
         <Route path="settings" element={<Settings />} />
         <Route path="account" element={<Account />} />
+        <Route path="roles" element={<Roles />} />
 
         {isAdmin && (
           <>

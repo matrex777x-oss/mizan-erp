@@ -22,12 +22,16 @@ const parsePick = (pick) => {
   return id ? { type, id } : { type: null, id: null };
 };
 
+const CAPABILITY_PREFIX = { SALES: 'sales', PURCHASE: 'purchase' };
+
 export default function InvoiceForm() {
   const { kind: slug, id } = useParams();
   const kind = KIND_BY_SLUG[slug] || 'SALES';
   const labels = LABELS[kind];
   const navigate = useNavigate();
-  const { canWrite, settings } = useSession();
+  const { can, settings } = useSession();
+  const canWrite = can(`${CAPABILITY_PREFIX[kind]}.write`);
+  const canPost = can(`${CAPABILITY_PREFIX[kind]}.post`);
 
   const [header, setHeader] = useState({ date: today(), dueDate: '', partyId: '', notes: '' });
   const [lines, setLines] = useState([emptyLine(settings?.defaultTaxRate)]);
@@ -158,15 +162,15 @@ export default function InvoiceForm() {
         subtitle={id ? `أُنشئت في ${formatDate(header.date)}` : 'احفظها كمسودة أو رحّلها مباشرة إلى الحسابات'}
       >
         {id && <StatusBadge status={status} labels={STATUS_LABELS} />}
-        {id && status === 'POSTED' && canWrite && (
+        {id && status === 'POSTED' && canPost && (
           <button onClick={() => act('unpost', 'إلغاء ترحيل الفاتورة وإرجاعها مسودة؟')} disabled={busy}>
             إلغاء الترحيل
           </button>
         )}
-        {id && status === 'DRAFT' && canWrite && (
+        {id && status === 'DRAFT' && canPost && (
           <button className="primary" onClick={() => act('post')} disabled={busy}>ترحيل</button>
         )}
-        {id && status !== 'CANCELLED' && canWrite && (
+        {id && status !== 'CANCELLED' && canPost && (
           <button className="danger" onClick={() => act('cancel', 'إلغاء الفاتورة نهائياً؟')} disabled={busy}>إلغاء الفاتورة</button>
         )}
         {id && <button onClick={() => window.print()}>طباعة</button>}

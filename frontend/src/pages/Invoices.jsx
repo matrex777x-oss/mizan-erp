@@ -15,12 +15,16 @@ const TITLES = {
   PURCHASE: { title: 'فواتير المشتريات', party: 'المورد', action: 'فاتورة مشتريات جديدة' },
 };
 
+const CAPABILITY_PREFIX = { SALES: 'sales', PURCHASE: 'purchase' };
+
 export default function Invoices() {
   const { kind: slug } = useParams();
   const kind = KIND_BY_SLUG[slug] || 'SALES';
   const labels = TITLES[kind];
 
-  const { canWrite } = useSession();
+  const { can } = useSession();
+  const canWrite = can(`${CAPABILITY_PREFIX[kind]}.write`);
+  const canPost = can(`${CAPABILITY_PREFIX[kind]}.post`);
   const [status, setStatus] = useState('');
   const [search, setSearch] = useState('');
 

@@ -3,8 +3,9 @@
 const express = require('express');
 
 const prisma = require('../lib/prisma');
-const { requireWrite } = require('../lib/auth');
-const { badRequest, notFound } = require('../lib/errors');
+const { assertInvoiceCapability } = require('../lib/auth');
+const { allowedInvoiceKinds } = require('../lib/capabilities');
+const { badRequest, forbidden, notFound } = require('../lib/errors');
 const {
   requireString,
   optionalString,
@@ -39,8 +40,18 @@ router.get('/', async (req, res, next) => {
     const take = Math.min(Number(req.query.limit) || 50, 200);
     const skip = Math.max(Number(req.query.offset) || 0, 0);
 
+    const kinds = allowedInvoiceKinds(req.role);
+    if (!kinds.length) throw forbidden('لا تملك صلاحية عرض الفواتير');
+
     const where = {};
-    if (req.query.kind) where.kind = requireEnum(req.query.kind, INVOICE_KINDS, 'النوع');
+    if (req.query.kind) {
+      const kind = requireEnum(req.query.kind, INVOICE_KINDS, 'النوع');
+      assertInvoiceCapability(req, kind, 'read');
+      where.kind = kind;
+    } else {
+      // بلا نوع محدَّد: الأنواع المسموح بها وحدها
+      where.kind = { in: kinds };
+    }
     if (req.query.status) where.status = requireEnum(req.query.status, DOC_STATUSES, 'الحالة');
     if (req.query.partyId) where.partyId = String(req.query.partyId);
     const from = optionalDate(req.query.from, 'من تاريخ');
@@ -77,6 +88,8 @@ router.get('/:id', async (req, res, next) => {
   try {
     const row = await prisma.invoice.findUnique({ where: { id: req.params.id }, include: WITH_DETAILS });
     if (!row) throw notFound('الفاتورة غير موجودة');
+    assertInvoiceCapability(req, row.kind, 'read');
+
     const paid = await paidAmounts(prisma, [row.id]);
     const entry = await prisma.journalEntry.findFirst({
       where: { source: 'INVOICE', sourceId: row.id },
@@ -116,9 +129,11 @@ async function readPayload(body, kind) {
   };
 }
 
-router.post('/', requireWrite, async (req, res, next) => {
+router.post('/', async (req, res, next) => {
   try {
     const kind = requireEnum(req.body?.kind, INVOICE_KINDS, 'النوع');
+    assertInvoiceCapability(req, kind, 'write');
+    if (req.body?.post === true) assertInvoiceCapability(req, kind, 'post');
     const payload = await readPayload(req.body, kind);
     const shouldPost = req.body?.post === true;
 
@@ -154,10 +169,11 @@ router.post('/', requireWrite, async (req, res, next) => {
   }
 });
 
-router.patch('/:id', requireWrite, async (req, res, next) => {
+router.patch('/:id', async (req, res, next) => {
   try {
     const current = await prisma.invoice.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الفاتورة غير موجودة');
+    assertInvoiceCapability(req, current.kind, 'write');
     if (current.status !== 'DRAFT') throw badRequest('لا يمكن تعديل فاتورة مُرحَّلة أو ملغاة');
 
     const payload = await readPayload({ ...req.body, kind: current.kind }, current.kind);
@@ -189,11 +205,12 @@ router.patch('/:id', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/post', requireWrite, async (req, res, next) => {
+router.post('/:id/post', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id: req.params.id }, include: { lines: true } });
       if (!invoice) throw notFound('الفاتورة غير موجودة');
+      assertInvoiceCapability(req, invoice.kind, 'post');
       await postInvoice(tx, invoice, req.user);
     });
 
@@ -205,11 +222,12 @@ router.post('/:id/post', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/unpost', requireWrite, async (req, res, next) => {
+router.post('/:id/unpost', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id: req.params.id } });
       if (!invoice) throw notFound('الفاتورة غير موجودة');
+      assertInvoiceCapability(req, invoice.kind, 'post');
       await unpostInvoice(tx, invoice);
     });
 
@@ -220,11 +238,12 @@ router.post('/:id/unpost', requireWrite, async (req, res, next) => {
   }
 });
 
-router.post('/:id/cancel', requireWrite, async (req, res, next) => {
+router.post('/:id/cancel', async (req, res, next) => {
   try {
     await prisma.$transaction(async (tx) => {
       const invoice = await tx.invoice.findUnique({ where: { id: req.params.id } });
       if (!invoice) throw notFound('الفاتورة غير موجودة');
+      assertInvoiceCapability(req, invoice.kind, 'post');
       if (invoice.status === 'CANCELLED') throw badRequest('الفاتورة ملغاة مسبقاً');
       if (invoice.status === 'POSTED') await unpostInvoice(tx, invoice);
       await tx.invoice.update({ where: { id: invoice.id }, data: { status: 'CANCELLED' } });
@@ -237,10 +256,11 @@ router.post('/:id/cancel', requireWrite, async (req, res, next) => {
   }
 });
 
-router.delete('/:id', requireWrite, async (req, res, next) => {
+router.delete('/:id', async (req, res, next) => {
   try {
     const current = await prisma.invoice.findUnique({ where: { id: req.params.id } });
     if (!current) throw notFound('الفاتورة غير موجودة');
+    assertInvoiceCapability(req, current.kind, 'write');
     if (current.status === 'POSTED') throw badRequest('ألغِ ترحيل الفاتورة قبل حذفها');
 
     await prisma.invoice.delete({ where: { id: current.id } });
