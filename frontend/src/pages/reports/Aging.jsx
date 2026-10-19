@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Card, Loading, Money, PageHead } from '../../components/ui.jsx';
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
+import ExportButtons from '../../components/ExportButtons.jsx';
 import { today } from '../../lib/format';
 
 export default function Aging() {
@@ -23,6 +24,29 @@ export default function Aging() {
           <option value="PURCHASE">ذمم الموردين</option>
         </select>
         <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} style={{ width: 150 }} />
+        <ExportButtons
+          title="أعمار الديون"
+          subtitle={data ? `الإجمالي المستحق ${data.totals.grandTotal}` : ''}
+          columns={[
+            { label: 'الطرف' },
+            ...(data?.buckets || []).map((bucket) => ({ label: bucket.label, numeric: true })),
+            { label: 'الإجمالي', numeric: true },
+          ]}
+          rows={(data?.rows || []).map((row) => [
+            row.name,
+            ...(data?.buckets || []).map((bucket) => row[bucket.key]),
+            row.total,
+          ])}
+          totals={
+            data
+              ? [
+                  'الإجمالي',
+                  ...(data.buckets || []).map((bucket) => data.totals[bucket.key]),
+                  data.totals.grandTotal,
+                ]
+              : null
+          }
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 

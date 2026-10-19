@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Alert, Card, Loading, Money, PageHead } from '../../components/ui.jsx';
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
+import ExportButtons from '../../components/ExportButtons.jsx';
 
 function Section({ title, rows, total, totalLabel }) {
   return (
@@ -44,6 +45,24 @@ export default function IncomeStatement() {
       <PageHead title="قائمة الدخل" subtitle="الإيرادات ناقص المصروفات خلال الفترة">
         <input type="date" value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} style={{ width: 150 }} />
         <input type="date" value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} style={{ width: 150 }} />
+        <ExportButtons
+          title="قائمة الدخل"
+          subtitle={data ? `صافي النتيجة ${data.totals.netProfit}` : ''}
+          columns={[{ label: 'البند' }, { label: 'المبلغ', numeric: true }]}
+          rows={
+            data
+              ? [
+                  ['الإيرادات', ''],
+                  ...data.income.map((row) => [`${row.code} — ${row.name}`, row.amount]),
+                  ['إجمالي الإيرادات', data.totals.income],
+                  ['المصروفات', ''],
+                  ...data.expenses.map((row) => [`${row.code} — ${row.name}`, row.amount]),
+                  ['إجمالي المصروفات', data.totals.expenses],
+                ]
+              : []
+          }
+          totals={data ? ['صافي النتيجة', data.totals.netProfit] : null}
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 

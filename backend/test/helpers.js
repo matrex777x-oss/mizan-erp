@@ -20,6 +20,12 @@ process.env.SEED_PASSWORD = 'Test@12345';
 // حتى لا يُلتقط dev.db الحقيقي فيُرحَّل أثناء الاختبارات
 process.env.LEGACY_DB_PATH = path.join(DATA_DIR, 'no-legacy.db');
 
+// `npm install` يمسح العميل المولَّد خارج مجلداته المعروفة، فنولّده كما يفعل
+// الخادم عند إقلاعه بدل أن تسقط الاختبارات بـ MODULE_NOT_FOUND
+const { ensurePrismaClient } = require('../src/bootstrap');
+
+ensurePrismaClient();
+
 const password = require('../src/lib/password');
 const systemDb = require('../src/lib/systemDb');
 const businessDb = require('../src/lib/businessDb');

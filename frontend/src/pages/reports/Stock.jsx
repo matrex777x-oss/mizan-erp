@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Alert, Card, DataTable, Field, Money, PageHead } from '../../components/ui.jsx';
 import { api, query } from '../../lib/api';
 import { useAsync } from '../../lib/useAsync';
+import ExportButtons from '../../components/ExportButtons.jsx';
 import { formatDate, formatQuantity, MOVE_KIND_LABELS, MOVE_SOURCE_LABELS } from '../../lib/format';
 
 export default function Stock() {
@@ -24,6 +25,31 @@ export default function Stock() {
   return (
     <>
       <PageHead title="المخزون" subtitle="أرصدة الأصناف بالتكلفة المتوسطة المرجّحة، وحركة كل صنف تفصيلياً">
+        <ExportButtons
+          title="أرصدة المخزون"
+          subtitle={balances.data ? `قيمة المخزون ${balances.data.totals.value}` : ''}
+          columns={[
+            { label: 'الرمز' },
+            { label: 'الصنف' },
+            { label: 'الوحدة' },
+            { label: 'الرصيد', numeric: true },
+            { label: 'متوسط التكلفة', numeric: true },
+            { label: 'القيمة', numeric: true },
+          ]}
+          rows={(balances.data?.rows || []).map((row) => [
+            row.code,
+            row.name,
+            row.unit,
+            row.onHand,
+            row.averageCost,
+            row.value,
+          ])}
+          totals={
+            balances.data
+              ? ['', 'الإجمالي', '', '', '', balances.data.totals.value]
+              : null
+          }
+        />
         <button onClick={() => window.print()}>طباعة</button>
       </PageHead>
 
